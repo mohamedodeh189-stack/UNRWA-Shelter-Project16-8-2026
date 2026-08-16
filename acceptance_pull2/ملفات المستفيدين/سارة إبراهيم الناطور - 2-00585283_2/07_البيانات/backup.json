@@ -1,0 +1,54 @@
+{
+  "name": "سارة إبراهيم الناطور",
+  "registration": "2-00585283",
+  "fileNo": "",
+  "phone1": "0991234567",
+  "phone2": "",
+  "address": "مخيم اليرموك - شارع فلسطين",
+  "sector": "شرق اليرموك 1",
+  "workflowStage": "study",
+  "engineer": "",
+  "quantities": [
+    {
+      "item_no": 1,
+      "quantity": 12.5,
+      "unit_price": 0
+    },
+    {
+      "item_no": 2,
+      "quantity": 8,
+      "unit_price": 0
+    },
+    {
+      "item_no": 3,
+      "quantity": 4,
+      "unit_price": 0
+    },
+    {
+      "item_no": 6,
+      "quantity": 5.5,
+      "unit_price": 0
+    },
+    {
+      "item_no": 9,
+      "quantity": 3,
+      "unit_price": 0
+    },
+    {
+      "item_no": 15,
+      "quantity": 10,
+      "unit_price": 0
+    },
+    {
+      "item_no": 20,
+      "quantity": 2,
+      "unit_price": 0
+    },
+    {
+      "item_no": 37,
+      "quantity": 6,
+      "unit_price": 0
+    }
+  ],
+  "exportedAt": "2026-08-08 22:26"
+}

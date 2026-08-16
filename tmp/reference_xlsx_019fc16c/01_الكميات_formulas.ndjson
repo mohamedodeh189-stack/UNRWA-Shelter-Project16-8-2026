@@ -1,0 +1,4 @@
+{"kind":"formula","sheet":"الكميات","address":"H7","formula":"=F7*G7"}
+{"kind":"formula","sheet":"الكميات","address":"E44","formula":"=SUM(H7:H43)"}
+{"kind":"formula","sheet":"الكميات","address":"E45","formula":"=E44*0.6"}
+{"kind":"formula","sheet":"الكميات","address":"I45","formula":"=E44*0.4"}

@@ -1,0 +1,8 @@
+مهم جداً: ملف yarmouk-field-release.jks هو مفتاح توقيع التطبيق.
+يجب الاحتفاظ به لإصدار تحديثات مستقبلية يمكن تثبيتها فوق النسخة الحالية.
+
+Alias: yarmouk-field
+Store/Key password: YarmoukField2026!
+
+لا ترسل هذا المجلد علناً ولا تحذفه بعد تسليم APK.
+

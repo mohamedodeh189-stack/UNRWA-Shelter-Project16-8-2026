@@ -1,0 +1,44 @@
+[
+  {
+    "index": 0,
+    "name": "الكميات",
+    "usedRange": "A2:K45",
+    "preview": "01_الكميات.png",
+    "renderError": "Could not encode as png"
+  },
+  {
+    "index": 1,
+    "name": "المخطط",
+    "usedRange": "A1",
+    "preview": "02_المخطط.png",
+    "renderError": "Could not allocate new 145×48 bitmap"
+  },
+  {
+    "index": 2,
+    "name": "الوثائق",
+    "usedRange": "A1",
+    "preview": "03_الوثائق.png",
+    "renderError": "Could not allocate new 145×48 bitmap"
+  },
+  {
+    "index": 3,
+    "name": "صور قبل الترميم",
+    "usedRange": "A1",
+    "preview": "04_صور قبل الترميم.png",
+    "renderError": "Could not allocate new 145×48 bitmap"
+  },
+  {
+    "index": 4,
+    "name": "صور بعد الترميم",
+    "usedRange": "A1",
+    "preview": "05_صور بعد الترميم.png",
+    "renderError": "Could not allocate new 145×48 bitmap"
+  },
+  {
+    "index": 5,
+    "name": "نسبة الإنجاز",
+    "usedRange": "A2:E15",
+    "preview": "06_نسبة الإنجاز.png",
+    "renderError": "Could not allocate new 1239×483 bitmap"
+  }
+]

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI POLISH: the app now manages its own Light/Dark/System palette at runtime (applyPalette() in
+         MainActivity, SharedPreferences-backed). Android's automatic "Force Dark" (API 29+) otherwise
+         auto-inverts our light-styled views whenever the OS is in system dark mode, even when the user
+         has explicitly chosen "فاتح" (Light) inside the app — fighting our own theme choice. Disabling it
+         here makes our manual palette authoritative, matching what the in-app selection actually shows. -->
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/navy_dark</item>
+        <item name="android:navigationBarColor">@color/navy_dark</item>
+        <item name="android:windowBackground">@color/surface</item>
+        <item name="android:colorAccent">@color/unrwa_blue</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>
