@@ -1820,6 +1820,21 @@ public final class MainActivity extends Activity {
         Button bigMapBtn=smallButton("⛶ تكبير الخريطة",0xff0E7490);titleRow2.addView(bigMapBtn,new LinearLayout.LayoutParams(dp(140),dp(40)));
         // FINAL FIELD USABILITY FIX §5: a small «؟ دليل» button with a short, field-focused map help sheet.
         Button guideBtn=smallButton("؟ دليل",0xff7A5CB8);LinearLayout.LayoutParams gbp=new LinearLayout.LayoutParams(dp(72),dp(40));gbp.setMargins(dp(6),0,0,0);guideBtn.setOnClickListener(v->showMapGuide());titleRow2.addView(guideBtn,gbp);
+
+        // ALWAYS-VISIBLE background status + chooser — replaces the old single "cycle" button that gave no
+        // indication of which background was active. Now: one line always says exactly what's showing and
+        // whether it's calibrated, and three explicit named chips pick the background directly (no guessing/
+        // clicking-and-hoping). The satellite chip is disabled until an image has actually been imported.
+        final TextView calibStatus=text("",12,TEXT,true);calibStatus.setPadding(dp(10),dp(7),dp(10),dp(7));LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,-2);csp.setMargins(0,dp(4),0,dp(2));page.addView(calibStatus,csp);
+        final String[] mapKey={AppDatabase.MAP_CALIBRATED};
+        LinearLayout bgChipRow=new LinearLayout(this);bgChipRow.setGravity(Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams bcrp=new LinearLayout.LayoutParams(-1,-2);bcrp.setMargins(0,0,0,dp(4));page.addView(bgChipRow,bcrp);
+        final Button chipCalibrated=smallButton("الخريطة المعايرة",0xff7A5CB8);
+        final Button chipPlan=smallButton("المخطط التنظيمي",0xff7A5CB8);
+        final Button chipSatellite=smallButton("🛰 القمر الصناعي",0xff7A5CB8);
+        Button[] bgChips={chipCalibrated,chipPlan,chipSatellite};
+        String[] bgChipKeys={AppDatabase.MAP_CALIBRATED,AppDatabase.MAP_PLAN,AppDatabase.MAP_SATELLITE};
+        for(int i=0;i<bgChips.length;i++){LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(40),1);if(i>0)cp.setMargins(dp(4),0,0,0);bgChipRow.addView(bgChips[i],cp);}
+
         // Operational Map Pro — a summary bar + a per-sector distribution strip that reflect the current list/filter,
         // so the engineer immediately understands how the imported list spread across the five sectors.
         final TextView summaryBar=text("",12,NAVY,true);summaryBar.setPadding(dp(10),dp(7),dp(10),dp(7));summaryBar.setBackground(round(CARD_BG,10,CARD_BORDER,1));LinearLayout.LayoutParams sbp=new LinearLayout.LayoutParams(-1,-2);sbp.setMargins(0,dp(4),0,dp(2));page.addView(summaryBar,sbp);
@@ -1855,11 +1870,15 @@ public final class MainActivity extends Activity {
         LinearLayout layerRow2=new LinearLayout(this);layerRow2.setPadding(0,0,0,dp(4));controlsBox.addView(layerRow2,new LinearLayout.LayoutParams(-1,dp(40)));
         CheckBox cbStreets=new CheckBox(this);cbStreets.setText("أسماء الشوارع الحقيقية (OpenStreetMap)");cbStreets.setChecked(true);cbStreets.setTextSize(11);layerRow2.addView(cbStreets,new LinearLayout.LayoutParams(0,-2,1));
 
-        controlsBox.addView(settingsSection("خلفية الخريطة والقمر الصناعي"));
-        TextView calibStatus=text("",12,TEXT,true);calibStatus.setPadding(0,dp(2),0,dp(4));controlsBox.addView(calibStatus);
-        Button manageCalib=smallButton("إدارة نقاط المعايرة (للخلفية الحالية)",0xff7A5CB8);controlsBox.addView(manageCalib,new LinearLayout.LayoutParams(-1,dp(42)));
-        Button satBtn=smallButton("🛰 استيراد صورة القمر الصناعي (بلا إنترنت)",0xff0E7490);satBtn.setOnClickListener(v->chooseSatelliteImage());LinearLayout.LayoutParams satp=new LinearLayout.LayoutParams(-1,dp(42));satp.setMargins(0,dp(4),0,0);controlsBox.addView(satBtn,satp);
-        TextView satHint=text("استورد صورة قمر صناعي من جهازك مرة واحدة لتبقى محفوظة وتشتغل بدون إنترنت دائمًا، ثم عايرها من «إدارة نقاط المعايرة» أعلاه — بعدها تظهر أسماء الشوارع الحقيقية فوقها تلقائيًا.",11,MUTED,false);satHint.setPadding(0,dp(4),0,0);controlsBox.addView(satHint);
+        controlsBox.addView(settingsSection("إعداد القمر الصناعي — 3 خطوات بالترتيب"));
+        // Numbered, self-checking setup flow — replaces 3 scattered buttons the engineer had to discover in
+        // the right order on their own. Each step shows a ✓ once done and explains what comes next, instead
+        // of silently doing nothing until the earlier step is complete.
+        final TextView step1Status=text("",12,TEXT,false);step1Status.setPadding(0,dp(2),0,dp(6));controlsBox.addView(step1Status);
+        Button satBtn=smallButton("① استيراد صورة القمر الصناعي (بلا إنترنت)",0xff0E7490);satBtn.setOnClickListener(v->chooseSatelliteImage());controlsBox.addView(satBtn,new LinearLayout.LayoutParams(-1,dp(42)));
+        final TextView step2Status=text("",12,TEXT,false);step2Status.setPadding(0,dp(8),0,dp(6));controlsBox.addView(step2Status);
+        Button manageCalib=smallButton("② معايرة صورة القمر الصناعي",0xff7A5CB8);LinearLayout.LayoutParams mcbp=new LinearLayout.LayoutParams(-1,dp(42));mcbp.setMargins(0,dp(2),0,0);controlsBox.addView(manageCalib,mcbp);
+        final TextView step3Status=text("③ التفعيل — اختر «🛰 القمر الصناعي» من الأزرار الثلاثة أعلى الخريطة",12,MUTED,false);step3Status.setPadding(0,dp(8),0,dp(2));controlsBox.addView(step3Status);
 
         // M1: the sector-distribution dashboard now sits BELOW the map (added later) so the top stays clean and the
         // map gets the height — the strip is still one horizontal scroll of cards, tap to focus a sector.
@@ -1886,32 +1905,45 @@ public final class MainActivity extends Activity {
         // Background switch: the official detailed «المخطط التنظيمي» (clear street names, no sector polygons) vs the
         // calibrated map (GPS-aligned, carries the sector boundaries). Sector boundaries are auto-hidden on the plan
         // because those polygons were digitised on the calibrated map and would not line up here.
-        final String[] mapKey={AppDatabase.MAP_CALIBRATED};
-        Button bgBtn=smallButton("🗺 الخلفية: الخريطة المعايرة",0xff7A5CB8);
-        LinearLayout.LayoutParams bgp=new LinearLayout.LayoutParams(0,dp(42),1);bgp.setMargins(dp(6),0,0,0);mapCtl.addView(bgBtn,bgp);
         // Overlay row: lay the official street plan over the satellite photo (rooftops + street names together).
         LinearLayout ovRow=new LinearLayout(this);ovRow.setGravity(Gravity.CENTER_VERTICAL);ovRow.setVisibility(View.GONE);page.addView(ovRow,new LinearLayout.LayoutParams(-1,-2));
         CheckBox cbOverlay=new CheckBox(this);cbOverlay.setText("المخطط فوق القمر الصناعي");cbOverlay.setTextSize(11);ovRow.addView(cbOverlay,new LinearLayout.LayoutParams(-2,-2));
         SeekBar ovAlpha=new SeekBar(this);ovAlpha.setMax(255);ovAlpha.setProgress(140);ovRow.addView(ovAlpha,new LinearLayout.LayoutParams(0,-2,1f));
-        bgBtn.setOnClickListener(v->{
+        // Restyles the three background chips so the ACTIVE one is unmistakable (filled brand colour) and the
+        // rest are neutral outlines — no more guessing which background is currently showing.
+        Runnable[] restyleChipsHolder=new Runnable[1];
+        restyleChipsHolder[0]=()->{
             boolean hasSat=satelliteFile().exists();
-            if(AppDatabase.MAP_CALIBRATED.equals(mapKey[0]))mapKey[0]=AppDatabase.MAP_PLAN;
-            else if(AppDatabase.MAP_PLAN.equals(mapKey[0]))mapKey[0]=hasSat?AppDatabase.MAP_SATELLITE:AppDatabase.MAP_CALIBRATED;
-            else mapKey[0]=AppDatabase.MAP_CALIBRATED;
+            for(int i=0;i<bgChips.length;i++){
+                boolean active=bgChipKeys[i].equals(mapKey[0]);
+                boolean enabled=!AppDatabase.MAP_SATELLITE.equals(bgChipKeys[i])||hasSat;
+                bgChips[i].setEnabled(enabled);
+                bgChips[i].setBackground(round(active?BRAND:(enabled?0xffEFEFF4:0xffE0E0E0),12,0,0));
+                bgChips[i].setTextColor(active?Color.WHITE:(enabled?NAVY:0xffB0B0B0));
+            }
+        };
+        java.util.function.Consumer<String> switchBg=key->{
+            boolean hasSat=satelliteFile().exists();
+            if(AppDatabase.MAP_SATELLITE.equals(key)&&!hasSat){toast("استورد صورة القمر الصناعي أولاً (خيارات متقدمة ← ① استيراد)");return;}
+            mapKey[0]=key;
             Bitmap bg;String title;
-            if(AppDatabase.MAP_PLAN.equals(mapKey[0])){bg=BitmapFactory.decodeResource(getResources(),computeResource("yarmouk_camp_plan","drawable"));title="المخطط التنظيمي";}
-            else if(AppDatabase.MAP_SATELLITE.equals(mapKey[0])){bg=BitmapFactory.decodeFile(satelliteFile().getAbsolutePath());title="القمر الصناعي";}
+            if(AppDatabase.MAP_PLAN.equals(key)){bg=BitmapFactory.decodeResource(getResources(),computeResource("yarmouk_camp_plan","drawable"));title="المخطط التنظيمي";}
+            else if(AppDatabase.MAP_SATELLITE.equals(key)){bg=BitmapFactory.decodeFile(satelliteFile().getAbsolutePath());title="القمر الصناعي";}
             else{bg=BitmapFactory.decodeResource(getResources(),R.drawable.yarmouk_camp_calibrated);title="الخريطة المعايرة";}
             if(bg==null){toast("تعذر تحميل الخلفية");mapKey[0]=AppDatabase.MAP_CALIBRATED;return;}
             currentMapKey=mapKey[0];
             mapView.setMapBitmap(bg);mapView.fitToScreen();
-            bgBtn.setText("🗺 الخلفية: "+title);
             cbSectors.setChecked(AppDatabase.MAP_CALIBRATED.equals(mapKey[0]));
             ovRow.setVisibility(AppDatabase.MAP_SATELLITE.equals(mapKey[0])?View.VISIBLE:View.GONE);
             if(!AppDatabase.MAP_SATELLITE.equals(mapKey[0])){cbOverlay.setChecked(false);mapView.setOverlay(null,0);}
+            restyleChipsHolder[0].run();
             refreshHolder[0].run();
-            toast("الخلفية: "+title+" — لكل خلفية معايرتها الخاصة");
-        });
+            toast("الخلفية الآن: "+title+" — لكل خلفية معايرتها الخاصة");
+        };
+        chipCalibrated.setOnClickListener(v->switchBg.accept(AppDatabase.MAP_CALIBRATED));
+        chipPlan.setOnClickListener(v->switchBg.accept(AppDatabase.MAP_PLAN));
+        chipSatellite.setOnClickListener(v->switchBg.accept(AppDatabase.MAP_SATELLITE));
+        restyleChipsHolder[0].run();
         cbOverlay.setOnCheckedChangeListener((btn,checked)->mapView.setOverlay(checked?BitmapFactory.decodeResource(getResources(),computeResource("yarmouk_camp_plan","drawable")):null,ovAlpha.getProgress()));
         ovAlpha.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             @Override public void onProgressChanged(SeekBar s,int p,boolean u){mapView.setOverlayAlpha(p);}
@@ -1938,9 +1970,28 @@ public final class MainActivity extends Activity {
             List<AppDatabase.CalibrationPointRow> calibRows=db.listCalibrationPoints(mapKey[0]);
             List<MapCalibration.Point> calibPts=new ArrayList<>();for(AppDatabase.CalibrationPointRow row:calibRows)calibPts.add(new MapCalibration.Point(row.label,row.lat,row.lng,row.fracX,row.fracY));
             MapCalibration.FitResult fit=MapCalibration.fit(calibPts);
-            if(calibRows.size()<3){calibStatus.setText("المعايرة غير مكتملة ("+calibRows.size()+"/3 نقاط على الأقل) — تُعرض تقديرات مستوى القطاع فقط حتى اكتمالها");calibStatus.setTextColor(0xffC9851C);}
-            else if(!fit.reliable){calibStatus.setText(fit.message);calibStatus.setTextColor(0xffBD4868);}
-            else{calibStatus.setText(fit.message+" ("+calibRows.size()+" نقطة)");calibStatus.setTextColor(0xff149176);}
+            String bgName=AppDatabase.MAP_PLAN.equals(mapKey[0])?"المخطط التنظيمي":AppDatabase.MAP_SATELLITE.equals(mapKey[0])?"القمر الصناعي":"الخريطة المعايرة";
+            int calibColor;String calibMsg;
+            if(calibRows.size()<3){calibMsg="المعايرة غير مكتملة ("+calibRows.size()+"/3 نقاط على الأقل) — تُعرض تقديرات مستوى القطاع فقط حتى اكتمالها";calibColor=0xffC9851C;}
+            else if(!fit.reliable){calibMsg=fit.message;calibColor=0xffBD4868;}
+            else{calibMsg=fit.message+" ("+calibRows.size()+" نقطة)";calibColor=0xff149176;}
+            calibStatus.setText("الخلفية الحالية: "+bgName+"  •  "+calibMsg);
+            calibStatus.setTextColor(Color.WHITE);
+            calibStatus.setBackground(round(calibColor,10,0,0));
+            restyleChipsHolder[0].run();
+            // Steps ①②③ track the SATELLITE setup specifically, independent of whichever background is active
+            // right now, so the engineer can check progress on it even while looking at a different background.
+            boolean satImported=satelliteFile().exists();
+            step1Status.setText(satImported?"✓ تم استيراد الصورة":"لم تُستورد صورة بعد");step1Status.setTextColor(satImported?0xff149176:MUTED);
+            List<AppDatabase.CalibrationPointRow> satCalibRows=db.listCalibrationPoints(AppDatabase.MAP_SATELLITE);
+            List<MapCalibration.Point> satCalibPts=new ArrayList<>();for(AppDatabase.CalibrationPointRow row:satCalibRows)satCalibPts.add(new MapCalibration.Point(row.label,row.lat,row.lng,row.fracX,row.fracY));
+            MapCalibration.FitResult satFit=MapCalibration.fit(satCalibPts);
+            boolean satCalibrated=satFit.fitted&&satFit.reliable;
+            step2Status.setText(!satImported?"بانتظار الخطوة ① أولاً":satCalibrated?"✓ معايرة موثوقة ("+satCalibRows.size()+" نقطة)":"لسا ناقصة ("+satCalibRows.size()+"/3 نقاط على الأقل)");
+            step2Status.setTextColor(!satImported?0xffB0B0B0:satCalibrated?0xff149176:0xffC9851C);
+            manageCalib.setEnabled(satImported);
+            step3Status.setText((satCalibrated?"✓ ":"")+"③ التفعيل — اختر «🛰 القمر الصناعي» من الأزرار الثلاثة أعلى الخريطة");
+            step3Status.setTextColor(satCalibrated?0xff149176:MUTED);
 
             String statusValue=MAP_FILTER_VALUES[statusFilter.getSelectedItemPosition()];
             String batchValue=batchFilter.getSelectedItemPosition()>0?(String)batchFilter.getSelectedItem():"all";
@@ -3207,8 +3258,8 @@ public final class MainActivity extends Activity {
             }
             android.graphics.BitmapFactory.Options opt=new android.graphics.BitmapFactory.Options();opt.inJustDecodeBounds=true;
             BitmapFactory.decodeFile(out.getAbsolutePath(),opt);
-            new AlertDialog.Builder(this).setTitle("تم استيراد صورة القمر الصناعي")
-                .setMessage("الأبعاد: "+opt.outWidth+"×"+opt.outHeight+" بكسل\n\nالخطوة التالية: افتح «الطبقات والفلاتر والمعايرة» ← «إدارة نقاط المعايرة» وأضف 3 نقاط على الأقل على هذه الصورة، لتظهر منازل المستفيدين في مواقعها الحقيقية فوق الأسطح.\n\nيمكنك أيضاً إظهار المخطط التنظيمي فوقها بشفافية لرؤية أسماء الشوارع.")
+            new AlertDialog.Builder(this).setTitle("✓ الخطوة ① تمت — تم استيراد صورة القمر الصناعي")
+                .setMessage("الأبعاد: "+opt.outWidth+"×"+opt.outHeight+" بكسل\n\nالخطوة التالية (②): أغلق هذه النافذة وأعد فتح «الخريطة التشغيلية»، ثم من «⚙ خيارات متقدمة» اضغط «② معايرة صورة القمر الصناعي» وأضف 3 نقاط GPS حقيقية على الأقل.\n\nبعدها (③) اختر «🛰 القمر الصناعي» من الأزرار الثلاثة أعلى الخريطة لتفعيلها.")
                 .setPositiveButton("حسناً",null).show();
         }catch(Exception e){new AlertDialog.Builder(this).setTitle("تعذر استيراد الصورة").setMessage(String.valueOf(e.getMessage())).setPositiveButton("حسناً",null).show();}
     }
