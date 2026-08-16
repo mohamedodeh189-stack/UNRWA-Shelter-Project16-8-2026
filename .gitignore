@@ -22,3 +22,28 @@ tests/build_v140/
 /Yarmouk_Camp_Field_Android_v*_Private_Source_Signing_Backup.zip
 /Yarmouk_Camp_Field_Android_v*_Smart_Address_Delivery.zip
 /Yarmouk_Camp_Field_Android_v*_Photo_Documentation_Delivery.zip
+/Yarmouk_Camp_Field_Android_v1.1.0/
+
+# Untracked-but-kept-on-disk historical release folders (superseded by
+# release/*1.5.6* and release/*1.5.7*, the two most recent versions).
+/release/Yarmouk_Camp_Field_Android_v1.0.0/
+/release/Yarmouk_Camp_Field_Android_v1.0.0_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.1.0/
+/release/Yarmouk_Camp_Field_Android_v1.1.0_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.3.0/
+/release/Yarmouk_Camp_Field_Android_v1.3.0_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.3.1_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.4.0_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.4.0_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.0_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.0_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.1_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.1_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.2_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.2_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.3_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.3_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.4_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.4_Private_Source/
+/release/Yarmouk_Camp_Field_Android_v1.5.5_Delivery/
+/release/Yarmouk_Camp_Field_Android_v1.5.5_Private_Source/
