@@ -51,12 +51,22 @@ public final class OperationalMapView extends View {
     private final Matrix inv = new Matrix();
     private final float density;
 
+    /** A real, OpenStreetMap-sourced street already converted to this map's fraction space by the caller
+     * (via the active MapCalibration fit) — never fabricated, so a street simply isn't drawn on a
+     * background that has no reliable calibration yet. */
+    public static final class StreetLine {
+        public final String name;
+        public final List<float[]> fracXY; // flattened pairs: [x0,y0,x1,y1,...], one moveTo-per-segment-break marked by NaN
+        public StreetLine(String name, List<float[]> fracXY) { this.name = name; this.fracXY = fracXY; }
+    }
+
     private Bitmap mapBitmap;
     private Bitmap overlayBitmap;      // e.g. the official plan drawn OVER a satellite photo
     private int overlayAlpha = 140;    // 0..255
     private List<SectorBoundaries.Sector> sectors = new ArrayList<>();
+    private List<StreetLine> streets = new ArrayList<>();
     private List<MapPoint> points = new ArrayList<>();
-    private boolean showSectors = true, showPoints = true, showHeatmap = false, showLabels = true;
+    private boolean showSectors = true, showPoints = true, showHeatmap = false, showLabels = true, showStreets = true;
     private OnSectorTapListener sectorTapListener;
     private OnPointTapListener pointTapListener;
     private OnMapTapListener mapTapListener;
@@ -98,6 +108,10 @@ public final class OperationalMapView extends View {
     public void setOverlayAlpha(int alpha0to255) { overlayAlpha = Math.max(0, Math.min(255, alpha0to255)); invalidate(); }
     public boolean hasOverlay() { return overlayBitmap != null; }
     public void setSectors(List<SectorBoundaries.Sector> value) { sectors = value == null ? new ArrayList<>() : value; invalidate(); }
+    /** Real, verified street lines (already fraction-converted by the caller). Independent of the sector
+     * layer — can be shown with or without it. */
+    public void setStreets(List<StreetLine> value) { streets = value == null ? new ArrayList<>() : value; invalidate(); }
+    public void setStreetsVisible(boolean on) { showStreets = on; invalidate(); }
     public void setPoints(List<MapPoint> value) { points = value == null ? new ArrayList<>() : value; invalidate(); }
     public void setLayerVisibility(boolean sectorsOn, boolean pointsOn, boolean heatmapOn) {
         showSectors = sectorsOn; showPoints = pointsOn; showHeatmap = heatmapOn; invalidate();
@@ -172,12 +186,17 @@ public final class OperationalMapView extends View {
         canvas.drawBitmap(mapBitmap, null, mapRect, paint);
         if (overlayBitmap != null && overlayAlpha > 0) { paint.setAlpha(overlayAlpha); canvas.drawBitmap(overlayBitmap, null, mapRect, paint); paint.setAlpha(255); }
         if (showSectors) drawSectors(canvas);
+        if (showStreets) drawStreetLines(canvas);
         if (showHeatmap) drawHeatmap(canvas);
         canvas.restore();
 
-        // --- points + sector labels: SCREEN space, fixed readable size ---
+        // --- points + labels: SCREEN space, fixed readable size ---
         if (showPoints) drawPoints(canvas);
-        if (showLabels && showSectors) drawSectorLabels(canvas);
+        java.util.List<RectF> drawnLabels = new ArrayList<>();
+        if (showLabels && showSectors) drawSectorLabels(canvas, drawnLabels);
+        // Street names only once zoomed in a bit — at the whole-camp view they'd be packed and unreadable;
+        // this reuses the SAME collision list as sector labels so the two layers never overlap each other.
+        if (showLabels && showStreets && currentScale() > 1.8f) drawStreetLabels(canvas, drawnLabels);
     }
 
     private static final int[] SECTOR_COLORS = {0xff007F9E, 0xff2968B2, 0xff149176, 0xff7A58B5, 0xffC9851C, 0xffBD4868, 0xff5C8432};
@@ -208,8 +227,7 @@ public final class OperationalMapView extends View {
     /** Big, legible sector names on translucent navy chips at each sector centroid. Labels that would OVERLAP an
      * already-drawn one are skipped — so at the whole-camp zoom only a few show (no pile-up), and as the engineer
      * pinch-zooms in the sectors spread apart and the rest of the names appear («far = sector name, near = more»). */
-    private void drawSectorLabels(Canvas canvas) {
-        java.util.List<RectF> drawn = new ArrayList<>();
+    private void drawSectorLabels(Canvas canvas, java.util.List<RectF> drawn) {
         float[] pt = new float[2];
         for (SectorBoundaries.Sector s : sectors) {
             float cx = 0, cy = 0; for (int i = 0; i < s.fracX.length; i++) { cx += s.fracX[i]; cy += s.fracY[i]; }
@@ -217,15 +235,52 @@ public final class OperationalMapView extends View {
             pt[0] = mapRect.left + cx * mapRect.width(); pt[1] = mapRect.top + cy * mapRect.height();
             view.mapPoints(pt);
             if (pt[0] < 0 || pt[0] > getWidth() || pt[1] < 0 || pt[1] > getHeight()) continue; // off-screen
-            String t = s.name;
-            float tw = label.measureText(t), pw = 8 * density, ph = 5 * density, th = 13 * density;
-            RectF bg = new RectF(pt[0] - tw / 2 - pw, pt[1] - th / 2 - ph, pt[0] + tw / 2 + pw, pt[1] + th / 2 + ph);
-            boolean clash = false; for (RectF r : drawn) if (RectF.intersects(r, bg)) { clash = true; break; }
-            if (clash) continue;
-            drawn.add(bg);
-            canvas.drawRoundRect(bg, 7 * density, 7 * density, labelBg);
-            canvas.drawText(t, pt[0], pt[1] + th / 2 - 2 * density, label);
+            drawChipLabel(canvas, s.name, pt[0], pt[1], drawn);
         }
+    }
+
+    /** Real streets drawn as thin lines under the zoom/pan matrix — a NaN pair in fracXY marks a break
+     * between disconnected segments of the same named street (moveTo instead of lineTo). */
+    private void drawStreetLines(Canvas canvas) {
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(2.2f * density / Math.max(1f, currentScale()));
+        paint.setColor(0xffE0A030);
+        for (StreetLine s : streets) {
+            Path path = new Path();
+            boolean first = true;
+            for (float[] xy : s.fracXY) {
+                if (Float.isNaN(xy[0])) { first = true; continue; }
+                float px = mapRect.left + xy[0] * mapRect.width(), py = mapRect.top + xy[1] * mapRect.height();
+                if (first) { path.moveTo(px, py); first = false; } else path.lineTo(px, py);
+            }
+            canvas.drawPath(path, paint);
+        }
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawStreetLabels(Canvas canvas, java.util.List<RectF> drawn) {
+        float[] pt = new float[2];
+        for (StreetLine s : streets) {
+            if (s.fracXY.isEmpty()) continue;
+            float[] mid = s.fracXY.get(s.fracXY.size() / 2);
+            if (Float.isNaN(mid[0])) mid = s.fracXY.get(0);
+            pt[0] = mapRect.left + mid[0] * mapRect.width(); pt[1] = mapRect.top + mid[1] * mapRect.height();
+            view.mapPoints(pt);
+            if (pt[0] < 0 || pt[0] > getWidth() || pt[1] < 0 || pt[1] > getHeight()) continue;
+            drawChipLabel(canvas, s.name, pt[0], pt[1], drawn);
+        }
+    }
+
+    /** Shared label-chip renderer: skips drawing if it would overlap an already-placed chip (sector OR
+     * street) — this single collision list is what makes the map get MORE readable as you zoom in, instead
+     * of more cluttered: closer-together labels only stop colliding once there is screen space between them. */
+    private void drawChipLabel(Canvas canvas, String t, float px, float py, java.util.List<RectF> drawn) {
+        float tw = label.measureText(t), pw = 8 * density, ph = 5 * density, th = 13 * density;
+        RectF bg = new RectF(px - tw / 2 - pw, py - th / 2 - ph, px + tw / 2 + pw, py + th / 2 + ph);
+        for (RectF r : drawn) if (RectF.intersects(r, bg)) return;
+        drawn.add(bg);
+        canvas.drawRoundRect(bg, 7 * density, 7 * density, labelBg);
+        canvas.drawText(t, px, py + th / 2 - 2 * density, label);
     }
 
     private void drawHeatmap(Canvas canvas) {

@@ -1838,21 +1838,28 @@ public final class MainActivity extends Activity {
         Spinner gpsFilter=new Spinner(this);gpsFilter.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,GPS_FILTER_NAMES));gpsFilter.setBackground(round(SURFACE_CARD,10,CARD_BORDER,1));LinearLayout.LayoutParams gfp=new LinearLayout.LayoutParams(0,dp(44),1);gfp.setMargins(dp(4),0,0,0);locRow.addView(gpsFilter,gfp);
         // Detailed/advanced controls (status filter, layers, calibration, satellite) stay hidden behind a toggle.
         final LinearLayout controlsBox=column(dp(6));controlsBox.setVisibility(View.GONE);
-        Button toggleCtl=smallButton("⚙ خيارات متقدمة (الحالة · الطبقات · المعايرة · القمر الصناعي)",0xff7A5CB8);toggleCtl.setOnClickListener(v->controlsBox.setVisibility(controlsBox.getVisibility()==View.GONE?View.VISIBLE:View.GONE));
+        Button toggleCtl=smallButton("⚙ خيارات متقدمة",0xff7A5CB8);toggleCtl.setOnClickListener(v->controlsBox.setVisibility(controlsBox.getVisibility()==View.GONE?View.VISIBLE:View.GONE));
         LinearLayout.LayoutParams tcp=new LinearLayout.LayoutParams(-1,dp(40));tcp.setMargins(0,dp(4),0,dp(2));page.addView(toggleCtl,tcp);
         page.addView(controlsBox,new LinearLayout.LayoutParams(-1,-2));
-        TextView calibStatus=text("",12,TEXT,true);calibStatus.setPadding(0,dp(2),0,dp(4));controlsBox.addView(calibStatus);
-        Button manageCalib=smallButton("إدارة نقاط المعايرة (للخلفية الحالية)",0xff7A5CB8);controlsBox.addView(manageCalib,new LinearLayout.LayoutParams(-1,dp(42)));
-        Button satBtn=smallButton("🛰 استيراد صورة القمر الصناعي (بلا إنترنت)",0xff0E7490);satBtn.setOnClickListener(v->chooseSatelliteImage());LinearLayout.LayoutParams satp=new LinearLayout.LayoutParams(-1,dp(42));satp.setMargins(0,dp(4),0,0);controlsBox.addView(satBtn,satp);
 
+        controlsBox.addView(settingsSection("الحالة"));
+        LinearLayout filterRow=new LinearLayout(this);filterRow.setGravity(Gravity.CENTER_VERTICAL);controlsBox.addView(filterRow,new LinearLayout.LayoutParams(-1,dp(46)));
+        filterRow.addView(text("الحالة:",12,NAVY,true),new LinearLayout.LayoutParams(-2,-2));
+        Spinner statusFilter=new Spinner(this);statusFilter.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,MAP_FILTER_NAMES));statusFilter.setBackground(round(SURFACE_CARD,10,CARD_BORDER,1));LinearLayout.LayoutParams stp=new LinearLayout.LayoutParams(0,-2,1);stp.setMargins(dp(4),0,0,0);filterRow.addView(statusFilter,stp);
+
+        controlsBox.addView(settingsSection("الطبقات"));
         LinearLayout layerRow=new LinearLayout(this);layerRow.setPadding(0,dp(6),0,dp(4));controlsBox.addView(layerRow,new LinearLayout.LayoutParams(-1,dp(40)));
         CheckBox cbSectors=new CheckBox(this);cbSectors.setText("حدود القطاعات");cbSectors.setChecked(true);cbSectors.setTextSize(11);layerRow.addView(cbSectors,new LinearLayout.LayoutParams(0,-2,1));
         CheckBox cbPoints=new CheckBox(this);cbPoints.setText("نقاط المستفيدين");cbPoints.setChecked(true);cbPoints.setTextSize(11);layerRow.addView(cbPoints,new LinearLayout.LayoutParams(0,-2,1));
         CheckBox cbHeatmap=new CheckBox(this);cbHeatmap.setText("الخريطة الحرارية");cbHeatmap.setChecked(false);cbHeatmap.setTextSize(11);layerRow.addView(cbHeatmap,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout layerRow2=new LinearLayout(this);layerRow2.setPadding(0,0,0,dp(4));controlsBox.addView(layerRow2,new LinearLayout.LayoutParams(-1,dp(40)));
+        CheckBox cbStreets=new CheckBox(this);cbStreets.setText("أسماء الشوارع الحقيقية (OpenStreetMap)");cbStreets.setChecked(true);cbStreets.setTextSize(11);layerRow2.addView(cbStreets,new LinearLayout.LayoutParams(0,-2,1));
 
-        LinearLayout filterRow=new LinearLayout(this);filterRow.setGravity(Gravity.CENTER_VERTICAL);controlsBox.addView(filterRow,new LinearLayout.LayoutParams(-1,dp(46)));
-        filterRow.addView(text("الحالة:",12,NAVY,true),new LinearLayout.LayoutParams(-2,-2));
-        Spinner statusFilter=new Spinner(this);statusFilter.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,MAP_FILTER_NAMES));statusFilter.setBackground(round(SURFACE_CARD,10,CARD_BORDER,1));LinearLayout.LayoutParams stp=new LinearLayout.LayoutParams(0,-2,1);stp.setMargins(dp(4),0,0,0);filterRow.addView(statusFilter,stp);
+        controlsBox.addView(settingsSection("خلفية الخريطة والقمر الصناعي"));
+        TextView calibStatus=text("",12,TEXT,true);calibStatus.setPadding(0,dp(2),0,dp(4));controlsBox.addView(calibStatus);
+        Button manageCalib=smallButton("إدارة نقاط المعايرة (للخلفية الحالية)",0xff7A5CB8);controlsBox.addView(manageCalib,new LinearLayout.LayoutParams(-1,dp(42)));
+        Button satBtn=smallButton("🛰 استيراد صورة القمر الصناعي (بلا إنترنت)",0xff0E7490);satBtn.setOnClickListener(v->chooseSatelliteImage());LinearLayout.LayoutParams satp=new LinearLayout.LayoutParams(-1,dp(42));satp.setMargins(0,dp(4),0,0);controlsBox.addView(satBtn,satp);
+        TextView satHint=text("استورد صورة قمر صناعي من جهازك مرة واحدة لتبقى محفوظة وتشتغل بدون إنترنت دائمًا، ثم عايرها من «إدارة نقاط المعايرة» أعلاه — بعدها تظهر أسماء الشوارع الحقيقية فوقها تلقائيًا.",11,MUTED,false);satHint.setPadding(0,dp(4),0,0);controlsBox.addView(satHint);
 
         // M1: the sector-distribution dashboard now sits BELOW the map (added later) so the top stays clean and the
         // map gets the height — the strip is still one horizontal scroll of cards, tap to focus a sector.
@@ -1942,6 +1949,23 @@ public final class MainActivity extends Activity {
             List<AppDatabase.Beneficiary> rows=db.listStage(currentProjectId,"","followup","all",batchValue);
             List<OperationalMapView.MapPoint> mapPoints=new ArrayList<>();
             boolean calibReady=fit.fitted&&fit.reliable;
+            // Real, OpenStreetMap-sourced street names/lines — only meaningful once THIS background has a
+            // reliable calibration fit; on an uncalibrated background there is nothing correct to convert to,
+            // so the layer is simply empty rather than guessed.
+            List<OperationalMapView.StreetLine> streetLines=new ArrayList<>();
+            if(calibReady){
+                try{
+                    for(VerifiedStreets.Street st:VerifiedStreets.load(this)){
+                        List<float[]> fracXY=new ArrayList<>();
+                        for(List<double[]> seg:st.segments){
+                            for(double[] latLng:seg){double[] f=fit.calibration.geoToFraction(latLng[0],latLng[1]);fracXY.add(new float[]{(float)f[0],(float)f[1]});}
+                            fracXY.add(new float[]{Float.NaN,Float.NaN}); // marks a break before the next segment
+                        }
+                        streetLines.add(new OperationalMapView.StreetLine(st.name,fracXY));
+                    }
+                }catch(Exception ignored){}
+            }
+            mapView.setStreets(streetLines);
             java.util.HashMap<String,Integer> estPerSector=new java.util.HashMap<>(); // MAP V3: spread stacked estimates
             for(AppDatabase.Beneficiary b:rows){
                 String bucket=mapStatusBucket(b);
@@ -2029,6 +2053,7 @@ public final class MainActivity extends Activity {
         cbSectors.setOnCheckedChangeListener((btn,checked)->refresh.run());
         cbPoints.setOnCheckedChangeListener((btn,checked)->refresh.run());
         cbHeatmap.setOnCheckedChangeListener((btn,checked)->refresh.run());
+        cbStreets.setOnCheckedChangeListener((btn,checked)->mapView.setStreetsVisible(checked));
         statusFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){@Override public void onNothingSelected(AdapterView<?>p){}@Override public void onItemSelected(AdapterView<?>p,View v,int pos,long id){refresh.run();}});
         batchFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){@Override public void onNothingSelected(AdapterView<?>p){}@Override public void onItemSelected(AdapterView<?>p,View v,int pos,long id){refresh.run();}});
         sectorFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){@Override public void onNothingSelected(AdapterView<?>p){}@Override public void onItemSelected(AdapterView<?>p,View v,int pos,long id){refresh.run();}});
@@ -2093,6 +2118,16 @@ public final class MainActivity extends Activity {
                 "اضغط اسم مستفيد لفتح ملفه أو التركيز على موقعه.",
                 "إذا كان الموقع «تقديري»، حدّث موقع المنزل بالـ GPS أثناء الزيارة ليظهر على مكانه الحقيقي."};
         for(String t:tips){TextView tv=text("•  "+t,13,TEXT,false);tv.setPadding(0,dp(4),0,dp(4));box.addView(tv);}
+
+        TextView satTitle=text("إضافة خلفية قمر صناعي حقيقية (بلا إنترنت)",15,NAVY,true);satTitle.setPadding(0,dp(14),0,dp(4));box.addView(satTitle);
+        String[] satSteps={
+                "التطبيق نفسه لا يتصل بالإنترنت أبداً — يحتاج شخصاً معه اتصال إنترنت (بالمكتب مثلاً) يجهّز الصورة مسبقاً.",
+                "افتح Google Earth أو أي خدمة خرائط أخرى على حاسوب، وابحث عن مخيم اليرموك، دمشق.",
+                "صدّر أو التقط صورة عالية الدقة تغطي المخيم بالكامل (بمساحة أوسع منه بقليل).",
+                "انقل الصورة إلى الموبايل (كابل أو فلاشة)، ثم استوردها من «⚙ خيارات متقدمة ← 🛰 استيراد صورة القمر الصناعي».",
+                "عايرها من «إدارة نقاط المعايرة» بإدخال 2-3 إحداثيات GPS حقيقية لنقاط معروفة على الصورة نفسها.",
+                "بعد المعايرة، تظهر أسماء الشوارع الحقيقية (من OpenStreetMap) فوق الصورة تلقائياً كلما كبّرت — هذه بيانات مفتوحة لا تحتاج إنترنت بعد تحميل التطبيق."};
+        for(String t:satSteps){TextView tv=text("•  "+t,13,TEXT,false);tv.setPadding(0,dp(4),0,dp(4));box.addView(tv);}
         new AlertDialog.Builder(this).setView(sv).setPositiveButton("فهمت",null).show();
     }
 
