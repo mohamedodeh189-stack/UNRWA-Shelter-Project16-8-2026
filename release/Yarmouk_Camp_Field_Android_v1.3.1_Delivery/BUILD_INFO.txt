@@ -1,7 +1,0 @@
-﻿Yarmouk Camp Field Android
-Version: 1.3.1 (131)
-Package: org.unrwa.yarmoukfield
-Minimum Android: 7.0 (API 24)
-Target SDK: 36
-SHA-256: 722019F236D6E267D58A968872DA2E0DE4F00BCFECF4301AFE814CCD90D8B7E4
-Built: 2026-08-02 11:47:22

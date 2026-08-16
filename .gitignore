@@ -14,3 +14,11 @@
 tests/__pycache__/
 tests/build_v131/
 tests/build_v140/
+
+# Historical per-version delivery/source archives — only the two most
+# recent versions are kept under release/; older ones are duplicated
+# zips of the same content and are archived outside git.
+/Yarmouk_Camp_Field_Android_v*_Delivery.zip
+/Yarmouk_Camp_Field_Android_v*_Private_Source_Signing_Backup.zip
+/Yarmouk_Camp_Field_Android_v*_Smart_Address_Delivery.zip
+/Yarmouk_Camp_Field_Android_v*_Photo_Documentation_Delivery.zip
