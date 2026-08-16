@@ -68,12 +68,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public final class MainActivity extends Activity {
     private static final int NAV_HOME=0,NAV_PEOPLE=1,NAV_ROUTE=2,NAV_GUIDE=3,NAV_SETTINGS=4;
     // ===== DEBUG-ONLY — REMOVE BEFORE RELEASE. Visual-QA seeder for the field-assistant rows. =====
     private static final boolean DEBUG_SEED = true;
-    private static final int REQUEST_IMPORT=4101,REQUEST_BACKUP=4102,REQUEST_PHOTO_ROOT=4103,REQUEST_CAPTURE_PHOTO=4104,REQUEST_HOUSE_PLAN=4105,REQUEST_CAD_FONT=4106,REQUEST_LOCATION_PERMISSION=4107,REQUEST_CONTACTS_PERMISSION=4108,REQUEST_SYNC_SHARE=4109,REQUEST_PACKAGE_ROOT=4110,REQUEST_SEQ_CAMERA=4111,REQUEST_CAMERA_PERMISSION=4112,REQUEST_ADDRESS_REF=4113,REQUEST_SATELLITE_IMAGE=4114;
+    private static final int REQUEST_IMPORT=4101,REQUEST_BACKUP=4102,REQUEST_PHOTO_ROOT=4103,REQUEST_CAPTURE_PHOTO=4104,REQUEST_HOUSE_PLAN=4105,REQUEST_CAD_FONT=4106,REQUEST_LOCATION_PERMISSION=4107,REQUEST_CONTACTS_PERMISSION=4108,REQUEST_SYNC_SHARE=4109,REQUEST_PACKAGE_ROOT=4110,REQUEST_SEQ_CAMERA=4111,REQUEST_CAMERA_PERMISSION=4112,REQUEST_ADDRESS_REF=4113,REQUEST_SATELLITE_IMAGE=4114,REQUEST_FULL_BACKUP=4115;
     private static final long GPS_CAPTURE_WINDOW_MS=75000,GPS_ACCURACY_WARNING_M=30;
     // Matches the Windows app's palette (launcher.py NAVY/Accent.TButton) so both apps read as one product.
     // UI POLISH: these were `static final` (fixed light palette); now plain instance fields recomputed by
@@ -83,6 +85,11 @@ public final class MainActivity extends Activity {
     private static final String THEME_PREFS="app_prefs",THEME_KEY="theme_mode";
     private String themeMode(){return getSharedPreferences(THEME_PREFS,MODE_PRIVATE).getString(THEME_KEY,"system");}
     private void setThemeMode(String mode){getSharedPreferences(THEME_PREFS,MODE_PRIVATE).edit().putString(THEME_KEY,mode).apply();}
+    // Last-backup tracker (either JSON-only or full+photos counts) — drives the home-screen reminder and the
+    // status line in Settings. Same small app_prefs store as theme/font-size, never the DB.
+    private long lastBackupAt(){return getSharedPreferences(THEME_PREFS,MODE_PRIVATE).getLong("last_backup_at",0);}
+    private void setLastBackupAt(long t){getSharedPreferences(THEME_PREFS,MODE_PRIVATE).edit().putLong("last_backup_at",t).apply();}
+    private String backupStatusLabel(){long t=lastBackupAt();if(t==0)return "لم تُنفَّذ أي نسخة احتياطية بعد";long days=(System.currentTimeMillis()-t)/86400000L;return days<=0?"آخر نسخة احتياطية: اليوم":"آخر نسخة احتياطية: قبل "+days+" يوماً";}
     private boolean isDarkActive(){String m=themeMode();if("dark".equals(m))return true;if("light".equals(m))return false;int uiMode=getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK;return uiMode==android.content.res.Configuration.UI_MODE_NIGHT_YES;}
     private void applyPalette(){
         if(isDarkActive()){
@@ -205,6 +212,13 @@ public final class MainActivity extends Activity {
         TextView stripText=text(cStudy+" دراسات · "+cFollow+" قيد المتابعة · "+cDone+" منجزة",12,NAVY,true);strip.addView(stripText,new LinearLayout.LayoutParams(0,-2,1));
         TextView offline=text("● يعمل دون إنترنت",11,0xff149176,true);strip.addView(offline);
         fadeIn(strip,fadeIdx[0]++);
+        // Backup reminder — only shown when stale (never backed up, or >7 days), so it disappears the moment
+        // the engineer makes a fresh one. Protects against data loss on phone theft/loss/app uninstall.
+        long lastBackup=lastBackupAt();
+        if(lastBackup==0||System.currentTimeMillis()-lastBackup>604800000L){
+            String note=lastBackup==0?"لم تُنسخ بياناتك احتياطياً بعد — اضغط لعمل نسخة الآن":"آخر نسخة احتياطية قبل "+((System.currentTimeMillis()-lastBackup)/86400000L)+" يوماً — اضغط لعمل نسخة جديدة";
+            box.addView(action("💾","احمِ بياناتك — اعمل نسخة احتياطية",note,0xffBD4868,fadeIdx[0]++,v->showPage(NAV_SETTINGS)));
+        }
         TextView actionsTitle=text("اختصارات سريعة",17,NAVY,true);actionsTitle.setPadding(0,dp(18),0,dp(8));box.addView(actionsTitle);
         box.addView(action("👤","بدء دراسة مستفيد جديد","إضافة الاسم والعنوان وتصوير الأضرار قبل الترميم",0xff7A5CB8,fadeIdx[0]++,v->showAddBeneficiary()));
         box.addView(action("📋","الدراسات","استكمال المخطط والكميات والمبلغ وتجهيز الاعتماد",BLUE,fadeIdx[0]++,v->showPage(NAV_PEOPLE)));
@@ -3053,7 +3067,9 @@ public final class MainActivity extends Activity {
         if(security.isEnabled())box.addView(setting("تغيير كود حماية التطبيق","PIN مشفر من 6 أرقام",0xffBD4868,v->changeSecurityPin()));
 
         box.addView(settingsSection("النسخ الاحتياطي والاستعادة"));
-        box.addView(setting("نسخة احتياطية JSON","تصدير الدراسات والمتابعة وجدول الكميات وفهرس الصور",0xff149176,v->createBackup()));
+        TextView backupStatus=text(backupStatusLabel(),11,MUTED,false);backupStatus.setPadding(0,0,0,dp(4));box.addView(backupStatus);
+        box.addView(setting("نسخة احتياطية JSON","تصدير الدراسات والمتابعة وجدول الكميات وفهرس الصور (بدون ملفات الصور)",0xff149176,v->createBackup()));
+        box.addView(setting("نسخة احتياطية كاملة (JSON + الصور)","تشمل ملفات الصور الفعلية — احفظها على بطاقة SD أو USB أو تطبيق تخزين سحابي لحمايتها من سرقة/فقدان/حذف التطبيق",0xff149176,v->createFullBackup()));
         box.addView(setting("استيراد قائمة أو نسخة احتياطية","Excel أو CSV أو JSON من ذاكرة الهاتف",0xff0E7490,v->chooseImport()));
 
         box.addView(settingsSection("مجلد المشروع"));
@@ -3202,7 +3218,7 @@ public final class MainActivity extends Activity {
             db.markRevisionsSynced(uuids);toast("تم تصدير "+uuids.size()+" سجلاً (بانتظار استلامها على جهاز Windows)");
             return;
         }
-        if(result!=RESULT_OK){if(request==REQUEST_PHOTO_ROOT){deferredPhotoBeneficiaryId=0;deferredPhotoPhase="";}if(request==REQUEST_HOUSE_PLAN)pendingPlanBeneficiaryId=0;return;}if(data==null||data.getData()==null)return;Uri uri=data.getData();if(request==REQUEST_IMPORT){if(ZipImportHelper.looksLikeZip(SpreadsheetImporter.queryName(this,uri)))importZipUri(uri);else importUri(uri);}else if(request==REQUEST_ADDRESS_REF)importAddressReference(uri);else if(request==REQUEST_SATELLITE_IMAGE)importSatelliteImage(uri);else if(request==REQUEST_BACKUP)writeBackup(uri);else if(request==REQUEST_CAD_FONT)writeCadFont(uri);else if(request==REQUEST_HOUSE_PLAN){long beneficiaryId=pendingPlanBeneficiaryId;pendingPlanBeneficiaryId=0;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}db.setDrawingUri(beneficiaryId,uri.toString());if(beneficiaryDialog!=null)beneficiaryDialog.dismiss();AppDatabase.Beneficiary fresh=db.beneficiary(beneficiaryId);if(fresh!=null)showBeneficiary(fresh);toast("تم ربط مخطط المنزل بالدراسة");}else if(request==REQUEST_PACKAGE_ROOT){try{int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);getContentResolver().takePersistableUriPermission(uri,flags);getSharedPreferences("package_export",MODE_PRIVATE).edit().putString("root_uri",uri.toString()).apply();toast("تم اعتماد مجلد المشروع — سيُحفظ داخله كل شيء تلقائياً");
+        if(result!=RESULT_OK){if(request==REQUEST_PHOTO_ROOT){deferredPhotoBeneficiaryId=0;deferredPhotoPhase="";}if(request==REQUEST_HOUSE_PLAN)pendingPlanBeneficiaryId=0;return;}if(data==null||data.getData()==null)return;Uri uri=data.getData();if(request==REQUEST_IMPORT){if(ZipImportHelper.looksLikeZip(SpreadsheetImporter.queryName(this,uri)))importZipUri(uri);else importUri(uri);}else if(request==REQUEST_ADDRESS_REF)importAddressReference(uri);else if(request==REQUEST_SATELLITE_IMAGE)importSatelliteImage(uri);else if(request==REQUEST_BACKUP)writeBackup(uri);else if(request==REQUEST_FULL_BACKUP)writeFullBackup(uri);else if(request==REQUEST_CAD_FONT)writeCadFont(uri);else if(request==REQUEST_HOUSE_PLAN){long beneficiaryId=pendingPlanBeneficiaryId;pendingPlanBeneficiaryId=0;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}db.setDrawingUri(beneficiaryId,uri.toString());if(beneficiaryDialog!=null)beneficiaryDialog.dismiss();AppDatabase.Beneficiary fresh=db.beneficiary(beneficiaryId);if(fresh!=null)showBeneficiary(fresh);toast("تم ربط مخطط المنزل بالدراسة");}else if(request==REQUEST_PACKAGE_ROOT){try{int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);getContentResolver().takePersistableUriPermission(uri,flags);getSharedPreferences("package_export",MODE_PRIVATE).edit().putString("root_uri",uri.toString()).apply();toast("تم اعتماد مجلد المشروع — سيُحفظ داخله كل شيء تلقائياً");
             // PROJECT SAVE ROOT: resume whatever the user was doing (start study / capture photos / prepare package)
             // via the single pendingRootAction. The legacy pendingPackageBenId path stays as a fallback.
             Runnable act=pendingRootAction;pendingRootAction=null;
@@ -3608,7 +3624,43 @@ public final class MainActivity extends Activity {
     private void saveImport(SpreadsheetImporter.Result result,boolean replace){db.importBeneficiaries(currentProjectId,result.rows,replace);toast("تم حفظ "+result.rows.size()+" مستفيداً وترتيب العناوين");showPage(NAV_HOME);}
 
     private void createBackup(){try{pendingBackup=db.backup(currentProjectId,currentProject).toString(2);Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/json");String date=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());intent.putExtra(Intent.EXTRA_TITLE,"Yarmouk_"+safeFile(currentProject)+"_"+date+".json");startActivityForResult(intent,REQUEST_BACKUP);}catch(Exception e){fatal("تعذر تجهيز النسخة الاحتياطية",e);}}
-    private void writeBackup(Uri uri){try(OutputStream out=getContentResolver().openOutputStream(uri)){if(out==null)throw new Exception("تعذر فتح ملف الحفظ");out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));toast("تم حفظ النسخة الاحتياطية بنجاح");}catch(Exception e){fatal("تعذر حفظ النسخة الاحتياطية",e);}finally{pendingBackup=null;}}
+    private void writeBackup(Uri uri){try(OutputStream out=getContentResolver().openOutputStream(uri)){if(out==null)throw new Exception("تعذر فتح ملف الحفظ");out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));setLastBackupAt(System.currentTimeMillis());toast("تم حفظ النسخة الاحتياطية بنجاح");}catch(Exception e){fatal("تعذر حفظ النسخة الاحتياطية",e);}finally{pendingBackup=null;}}
+
+    private void createFullBackup(){Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/zip");String date=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());intent.putExtra(Intent.EXTRA_TITLE,"Yarmouk_Full_"+safeFile(currentProject)+"_"+date+".zip");startActivityForResult(intent,REQUEST_FULL_BACKUP);}
+    /** Same data as the plain JSON backup, plus every referenced photo's actual bytes, zipped — the JSON-only
+     * backup has no way to recover photos if the device itself is lost, stolen, or the app is uninstalled.
+     * A photo whose source URI can no longer be opened (permission revoked, file moved) is skipped, not
+     * fatal — the rest of the backup still completes; the skipped count is reported to the user. */
+    private void writeFullBackup(Uri uri){
+        ProgressDialog progress=new ProgressDialog(this);progress.setMessage("جارٍ تجهيز النسخة الاحتياطية الكاملة…");progress.setCancelable(false);progress.show();
+        worker.execute(()->{
+            int[] counts={0,0}; // {photoCount, skipped}
+            try(OutputStream out=getContentResolver().openOutputStream(uri)){
+                if(out==null)throw new Exception("تعذر فتح ملف الحفظ");
+                try(ZipOutputStream zip=new ZipOutputStream(out)){
+                    byte[] json=db.backup(currentProjectId,currentProject).toString(2).getBytes(StandardCharsets.UTF_8);
+                    zip.putNextEntry(new ZipEntry("backup.json"));zip.write(json);zip.closeEntry();
+                    for(AppDatabase.Beneficiary b:db.list(currentProjectId,"","all")){
+                        String benFolder=safeFile(b.name.isEmpty()?("مستفيد_"+b.id):b.name)+"_"+b.id;
+                        for(AppDatabase.Photo p:db.photos(b.id,"")){
+                            try(InputStream in=getContentResolver().openInputStream(Uri.parse(p.uri))){
+                                if(in==null)throw new Exception("no stream");
+                                String name=p.fileName.isEmpty()?("photo_"+p.id+".jpg"):p.fileName;
+                                zip.putNextEntry(new ZipEntry("photos/"+benFolder+"/"+safeFile(p.phase)+"/"+p.id+"_"+safeFile(name)));
+                                byte[] buffer=new byte[32768];int count;while((count=in.read(buffer))!=-1)zip.write(buffer,0,count);
+                                zip.closeEntry();counts[0]++;
+                            }catch(Exception photoError){counts[1]++;}
+                        }
+                    }
+                }
+            }catch(Exception e){
+                runOnUiThread(()->{progress.dismiss();new AlertDialog.Builder(this).setTitle("تعذر حفظ النسخة الاحتياطية الكاملة").setMessage(e.getMessage()==null?e.toString():e.getMessage()).setPositiveButton("حسناً",null).show();});
+                return;
+            }
+            setLastBackupAt(System.currentTimeMillis());
+            runOnUiThread(()->{progress.dismiss();toast("تم حفظ النسخة الاحتياطية الكاملة — "+counts[0]+" صورة"+(counts[1]>0?("، تعذّر نسخ "+counts[1]+" صورة"):""));renderActive();});
+        });
+    }
     private void printRoute(){List<AppDatabase.Beneficiary>rows=db.listStage(currentProjectId,"","followup","all");if(rows.isEmpty()){toast("لا توجد قائمة متابعة للطباعة");return;}PrintManager manager=(PrintManager)getSystemService(Context.PRINT_SERVICE);PrintAttributes attrs=new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape()).setColorMode(PrintAttributes.COLOR_MODE_COLOR).setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();manager.print("Yarmouk_Field_"+safeFile(currentProject),new PrintRouteAdapter(this,currentProject,PRINT_CREDIT,rows),attrs);}
 
     private TextView text(String value,int sp,int color,boolean bold){TextView v=new TextView(this);v.setText(value);v.setTextSize(sp*fontScale());v.setTextColor(color);v.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);if(bold)v.setTypeface(Typeface.create("sans",Typeface.BOLD));v.setLineSpacing(0,1.12f);return v;}
