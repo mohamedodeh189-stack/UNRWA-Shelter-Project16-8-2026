@@ -45,23 +45,23 @@ public final class BeneficiaryXlsx {
     private static final Map<String, String> EVAL_CELL_BY_KEY = buildEvalCellMap();
     private static Map<String, String> buildEvalCellMap() {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("NAME","D1"); m.put("ENGINEER","G1");
+        m.put("NAME","B1"); m.put("NAME2","B5");
         m.put("AGE","D3"); m.put("GENDER","F3"); m.put("MARITAL","D4"); m.put("RESIDENCE","F4"); m.put("SECONDWIFE","D5");
-        m.put("FAMILYREG","B6"); m.put("OWNERSHIP","D6"); m.put("OWNERDOCS","F6");
+        m.put("FAMILYREG","B6"); m.put("OWNERSHIP","D6");
         m.put("REG","B7"); m.put("PLOTREF","D7");
         m.put("LEDGER","B8"); m.put("BUILDINGNO","D8"); m.put("STREET","F8");
         m.put("FAMSIZE","B9"); m.put("PHONE1","D9"); m.put("ADDRESS","F9");
-        m.put("NATID","B10"); m.put("PHONE2","D10"); m.put("FLOOR","F10");
+        m.put("NATID","B10"); m.put("PHONE2","D10"); m.put("FLOOR","H10");
         m.put("HEALTHSOCIAL_TOTAL","G12"); m.put("HEALTH_SUB","G13");
-        m.put("SCORE_CHRONIC","G14"); m.put("SCORE_MENTAL","G15");
-        m.put("SOCIAL_SUB","G16"); m.put("SCORE_VULN","G17"); m.put("SCORE_CROWD","G18");
-        m.put("SCORE_GENDERSEP","G19"); m.put("SCORE_INCOME","G20");
-        m.put("PHYSICAL_TOTAL","G21");
-        m.put("SCORE_STRUCT_DEVIATION","C22"); m.put("SCORE_STRUCT_CRACKING","D22"); m.put("SCORE_STRUCT_SPALLING","E22");
-        m.put("SCORE_STRUCT_STABILITY","F22"); m.put("SCORE_STRUCT_TOTAL","G22");
-        m.put("OTHERCOND_SUB","G23"); m.put("SCORE_TOILET","G24"); m.put("SCORE_KITCHEN","G25");
-        m.put("SCORE_VENTILATION","G26"); m.put("SCORE_DAMPNESS","G27"); m.put("SCORE_SEWAGE","G28");
-        m.put("GRAND_TOTAL","G29");
+        m.put("SCORE_CHRONIC","G14"); m.put("SCORE_MENTAL","G16");
+        m.put("SOCIAL_SUB","G18"); m.put("SCORE_VULN","G19"); m.put("SCORE_CROWD","G21");
+        m.put("SCORE_GENDERSEP","G23"); m.put("SCORE_INCOME","G25");
+        m.put("PHYSICAL_TOTAL","G27");
+        m.put("SCORE_STRUCT_DEVIATION","C30"); m.put("SCORE_STRUCT_CRACKING","D30"); m.put("SCORE_STRUCT_SPALLING","E30");
+        m.put("SCORE_STRUCT_STABILITY","F30"); m.put("SCORE_STRUCT_TOTAL","G28");
+        m.put("OTHERCOND_SUB","G31"); m.put("SCORE_TOILET","G32"); m.put("SCORE_KITCHEN","G34");
+        m.put("SCORE_VENTILATION","G36"); m.put("SCORE_DAMPNESS","G38"); m.put("SCORE_SEWAGE","G40");
+        m.put("GRAND_TOTAL","G42");
         return m;
     }
 
@@ -112,7 +112,7 @@ public final class BeneficiaryXlsx {
             String xml = new String(eval, StandardCharsets.UTF_8);
             Map<String, String> values = new LinkedHashMap<>();
             if (evaluation != null) values.putAll(evaluation.values);
-            if (beneficiaryName != null && !beneficiaryName.trim().isEmpty()) values.put("NAME", beneficiaryName.trim());
+            if (beneficiaryName != null && !beneficiaryName.trim().isEmpty()) { values.put("NAME", beneficiaryName.trim()); values.put("NAME2", beneficiaryName.trim()); }
             if (registration != null && !registration.trim().isEmpty()) values.put("REG", registration.trim());
             for (Map.Entry<String, String> entry : values.entrySet()) {
                 String cellRef = EVAL_CELL_BY_KEY.get(entry.getKey());
