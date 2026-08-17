@@ -46,12 +46,14 @@ public final class BeneficiaryXlsx {
     private static Map<String, String> buildEvalCellMap() {
         Map<String, String> m = new LinkedHashMap<>();
         m.put("NAME","B1"); m.put("NAME2","B5");
+        m.put("ENGINEER","D1"); m.put("RESEARCHER","E1"); m.put("VISITDATE","F1");
         m.put("AGE","D3"); m.put("GENDER","F3"); m.put("MARITAL","D4"); m.put("RESIDENCE","F4"); m.put("SECONDWIFE","D5");
-        m.put("FAMILYREG","B6"); m.put("OWNERSHIP","D6");
+        m.put("FAMILIES_IN_HOUSE","H4");
+        m.put("FAMILYREG","B6"); m.put("OWNERSHIP","D6"); m.put("OWNERDOCS","E6");
         m.put("REG","B7"); m.put("PLOTREF","D7");
         m.put("LEDGER","B8"); m.put("BUILDINGNO","D8"); m.put("STREET","F8");
-        m.put("FAMSIZE","B9"); m.put("PHONE1","D9"); m.put("ADDRESS","F9");
-        m.put("NATID","B10"); m.put("PHONE2","D10"); m.put("FLOOR","H10");
+        m.put("PHONE1","D9"); m.put("ADDRESS","F9");
+        m.put("NATID","B10"); m.put("PHONE2","D10"); m.put("HOUSETYPE","F10"); m.put("FLOOR","H10");
         m.put("HEALTHSOCIAL_TOTAL","G12"); m.put("HEALTH_SUB","G13");
         m.put("SCORE_CHRONIC","G14"); m.put("SCORE_MENTAL","G16");
         m.put("SOCIAL_SUB","G18"); m.put("SCORE_VULN","G19"); m.put("SCORE_CROWD","G21");

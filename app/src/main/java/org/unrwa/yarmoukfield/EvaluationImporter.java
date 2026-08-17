@@ -26,47 +26,40 @@ import java.util.zip.ZipFile;
  * this file lives at {@link #storageFile}, protected by the same device/app-PIN as everything else the app
  * stores locally, and is looked up by registration number at export time — never copied further.
  *
- * Column layout is specific to the 2026 KoBo export the field team is currently using (identification fields
- * are matched by header TEXT so a reordered export still works; the score columns' headers are generic
- * instruction text repeated across questions, not unique per-column, so those are matched by column LETTER
- * for this specific export version — re-verify the letters below if a materially different KoBo form version
- * is imported later). */
+ * Every field is matched by fixed column LETTER, taken directly from the reference workbook's own «التقييم»
+ * sheet formulas (e.g. its B1 cell literally reads {@code ='التطبيق'!W2}) — that sheet is the field team's
+ * own trusted source of truth for "which column means what", so mirroring its formulas exactly is more
+ * reliable than matching header TEXT: this export's header row has at least one confirmed case of the exact
+ * same header text repeated over two columns where only the second one actually holds data (e.g. "1.3 - اسم رب
+ * الاسرة" appears at both column M, always blank, and W, the real one) — a header-text search finds the first
+ * occurrence and would have silently imported blanks. Column letters are specific to the 2026 KoBo export the
+ * field team is currently using; re-verify them against the reference «التقييم» sheet's formulas if a
+ * materially different KoBo form version is imported later. */
 public final class EvaluationImporter {
     private EvaluationImporter() {}
 
     private static final String STORAGE_FILE = "kobo_evaluation_2026.json";
 
-    // Identification fields: matched by a unique substring in the row-1 header text.
-    private static final String[][] TEXT_FIELDS = {
-        {"NAME", "1.3 - اسم رب الاسرة"},
-        {"FAMILYREG", "1.4 - رقم تسجيل العائلة"},
-        {"REG", "1.5 - رقم التسجيل الفردي"},          // the match key
-        {"LEDGER", "1.6 - رقم الليدجر"},
-        {"NATID", "1.7 - رقم الهوية الوطني"},
-        {"GENDER", "1.9 - جنس رب الاسرة"},
-        {"AGE", "1.11"},
-        {"MARITAL", "1.12 - الحالة العائلية"},
-        {"RESIDENCE", "1.13 - مكان سكن العائلة"},
-        {"SECONDWIFE", "1.14"},
-        {"FAMSIZE", "1.15 - كم عائلة تسكن"},
-        {"OWNERSHIP", "1.16 - وضع ملكية المنزل"},
-        {"OWNERDOCS", "1.17 - اوراق الملكية المتوفرة"},
-        {"PLOTREF", "1.21"},
-        {"STREET", "1.22 - اسم الشارع"},
-        {"BUILDINGNO", "1.23"},
-        {"FLOOR", "1.25 - الطابق"},
-        {"ADDRESS", "1.26 - عنوان البيت"},
-        {"PHONE1", "1.27 - رقم الجوال 1"},
-        {"PHONE2", "1.28 - رقم الجوال 2"},
-    };
-    // Score fields: this KoBo version's headers are generic/repeated, so matched by fixed column letter.
+    // Every field matched by fixed column letter — see class doc for why. DATE_FIELDS holds raw Excel date
+    // serials (no time-of-day formatting) and gets converted to a plain yyyy-MM-dd string on import.
     private static final String[][] LETTER_FIELDS = {
+        {"NAME", "W"}, {"FAMILYREG", "X"}, {"REG", "Y"}, {"LEDGER", "Z"}, {"NATID", "AA"},
+        {"GENDER", "AD"}, {"MARITAL", "AG"}, {"RESIDENCE", "AH"}, {"SECONDWIFE", "AK"},
+        {"FAMILIES_IN_HOUSE", "AL"}, {"OWNERSHIP", "AM"}, {"OWNERDOCS", "AO"},
+        {"PLOTREF", "AV"}, {"STREET", "AW"}, {"BUILDINGNO", "AX"}, {"HOUSETYPE", "AY"}, {"FLOOR", "AZ"},
+        {"ADDRESS", "BA"}, {"PHONE1", "BB"}, {"PHONE2", "BC"},
+        {"ENGINEER", "I"}, {"RESEARCHER", "H"},
         {"SCORE_CHRONIC", "BI"}, {"SCORE_MENTAL", "BJ"},
         {"SCORE_VULN", "BL"}, {"SCORE_CROWD", "BM"}, {"SCORE_GENDERSEP", "BN"}, {"SCORE_INCOME", "BO"},
         {"SCORE_STRUCT_DEVIATION", "CC"}, {"SCORE_STRUCT_CRACKING", "CD"}, {"SCORE_STRUCT_SPALLING", "CE"},
         {"SCORE_STRUCT_STABILITY", "CF"}, {"SCORE_STRUCT_TOTAL", "CG"},
         {"SCORE_TOILET", "CI"}, {"SCORE_KITCHEN", "CJ"}, {"SCORE_VENTILATION", "CK"},
         {"SCORE_DAMPNESS", "CL"}, {"SCORE_SEWAGE", "CM"}, {"GRAND_TOTAL", "CO"},
+    };
+    // Raw Excel date-serial columns (no "t" cell-type attribute, just a numeric serial under a date style) —
+    // converted to yyyy-MM-dd on import instead of surfacing as a raw number like "46041.59...".
+    private static final String[][] DATE_FIELDS = {
+        {"VISITDATE", "A"}, {"AGE", "AE"}, // AGE here is the KoBo birthdate column, matching the reference sheet's own D3 formula (labelled "age" there, but it is the birthdate cell — reproduced exactly as-is)
     };
 
     public static final class ImportResult {
@@ -114,31 +107,41 @@ public final class EvaluationImporter {
     }
 
     private static List<EvaluationRecord> extract(List<SpreadsheetImporter.SheetRow> rows) {
-        SpreadsheetImporter.SheetRow header = rows.get(0);
-        Map<String, Integer> textCol = new LinkedHashMap<>();
-        for (String[] field : TEXT_FIELDS) {
-            for (Map.Entry<Integer, String> cell : header.cells.entrySet()) {
-                if (cell.getValue() != null && cell.getValue().contains(field[1])) { textCol.put(field[0], cell.getKey()); break; }
-            }
-        }
         Map<String, Integer> letterCol = new LinkedHashMap<>();
         for (String[] field : LETTER_FIELDS) letterCol.put(field[0], columnFromLetters(field[1]));
+        Map<String, Integer> dateCol = new LinkedHashMap<>();
+        for (String[] field : DATE_FIELDS) dateCol.put(field[0], columnFromLetters(field[1]));
+        int regCol = columnFromLetters("Y");
 
         List<EvaluationRecord> out = new ArrayList<>();
         for (int r = 1; r < rows.size(); r++) {
             SpreadsheetImporter.SheetRow row = rows.get(r);
-            Integer regCol = textCol.get("REG");
-            String reg = regCol == null ? "" : row.get(regCol).trim();
+            String reg = row.get(regCol).trim();
             if (reg.isEmpty()) continue; // no registration number to match on — skip the row
             EvaluationRecord rec = new EvaluationRecord();
             rec.registration = reg;
-            for (Map.Entry<String, Integer> e : textCol.entrySet()) rec.values.put(e.getKey(), row.get(e.getValue()).trim());
             for (Map.Entry<String, Integer> e : letterCol.entrySet()) rec.values.put(e.getKey(), row.get(e.getValue()).trim());
+            for (Map.Entry<String, Integer> e : dateCol.entrySet()) rec.values.put(e.getKey(), excelSerialToDate(row.get(e.getValue()).trim()));
             rec.name = rec.values.getOrDefault("NAME", "");
             addComputedSubtotals(rec);
             out.add(rec);
         }
         return out;
+    }
+
+    /** Converts a raw Excel date serial (e.g. "46041.59317576389") to "yyyy-MM-dd"; passes non-numeric or
+     * empty values through unchanged so an already-formatted cell or a blank one is never mangled.
+     * java.util.Calendar (not java.time, which needs API 26+) since this app's minSdkVersion is 24. */
+    private static String excelSerialToDate(String raw) {
+        if (raw == null || raw.trim().isEmpty()) return raw;
+        double serial;
+        try { serial = Double.parseDouble(raw.trim()); } catch (Exception e) { return raw; }
+        java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        cal.set(1899, java.util.Calendar.DECEMBER, 30, 0, 0, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+        cal.add(java.util.Calendar.DAY_OF_MONTH, (int) serial);
+        return String.format(java.util.Locale.US, "%04d-%02d-%02d",
+                cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH));
     }
 
     /** The «التقييم» sheet's category subtotals are plain sums of the KoBo-computed per-question scores —
