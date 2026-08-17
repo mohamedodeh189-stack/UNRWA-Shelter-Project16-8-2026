@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
     private static final int NAV_HOME=0,NAV_PEOPLE=1,NAV_ROUTE=2,NAV_GUIDE=3,NAV_SETTINGS=4;
     // ===== DEBUG-ONLY — REMOVE BEFORE RELEASE. Visual-QA seeder for the field-assistant rows. =====
     private static final boolean DEBUG_SEED = true;
-    private static final int REQUEST_IMPORT=4101,REQUEST_BACKUP=4102,REQUEST_PHOTO_ROOT=4103,REQUEST_CAPTURE_PHOTO=4104,REQUEST_HOUSE_PLAN=4105,REQUEST_CAD_FONT=4106,REQUEST_LOCATION_PERMISSION=4107,REQUEST_CONTACTS_PERMISSION=4108,REQUEST_SYNC_SHARE=4109,REQUEST_PACKAGE_ROOT=4110,REQUEST_SEQ_CAMERA=4111,REQUEST_CAMERA_PERMISSION=4112,REQUEST_ADDRESS_REF=4113,REQUEST_SATELLITE_IMAGE=4114,REQUEST_FULL_BACKUP=4115;
+    private static final int REQUEST_IMPORT=4101,REQUEST_BACKUP=4102,REQUEST_PHOTO_ROOT=4103,REQUEST_CAPTURE_PHOTO=4104,REQUEST_HOUSE_PLAN=4105,REQUEST_CAD_FONT=4106,REQUEST_LOCATION_PERMISSION=4107,REQUEST_CONTACTS_PERMISSION=4108,REQUEST_SYNC_SHARE=4109,REQUEST_PACKAGE_ROOT=4110,REQUEST_SEQ_CAMERA=4111,REQUEST_CAMERA_PERMISSION=4112,REQUEST_ADDRESS_REF=4113,REQUEST_SATELLITE_IMAGE=4114,REQUEST_FULL_BACKUP=4115,REQUEST_EVALUATION_IMPORT=4116;
     private static final long GPS_CAPTURE_WINDOW_MS=75000,GPS_ACCURACY_WARNING_M=30;
     // Matches the Windows app's palette (launcher.py NAVY/Accent.TButton) so both apps read as one product.
     // UI POLISH: these were `static final` (fixed light palette); now plain instance fields recomputed by
@@ -1104,8 +1104,9 @@ public final class MainActivity extends Activity {
             // Excel file is a complete beneficiary record — not just a quantities list.
             java.util.List<byte[]> photoBytes=new java.util.ArrayList<>();
             if(beforePhotos!=null)for(android.net.Uri u:beforePhotos){try{byte[] jb=scaledJpegBytes(u,1200);if(jb!=null)photoBytes.add(jb);}catch(Exception ignored){}}
+            EvaluationRecord eval=EvaluationImporter.findByRegistration(this,b.registration);
             java.io.ByteArrayOutputStream bo=new java.io.ByteArrayOutputStream();
-            try(java.io.InputStream tpl=getAssets().open(BeneficiaryXlsx.TEMPLATE_ASSET)){ BeneficiaryXlsx.write(tpl,q,b.name,photoBytes,bo); }
+            try(java.io.InputStream tpl=getAssets().open(BeneficiaryXlsx.TEMPLATE_ASSET)){ BeneficiaryXlsx.write(tpl,q,b.name,photoBytes,b.registration,eval,bo); }
             return bo.toByteArray();
         }catch(Exception e){ return null; }
     }
@@ -3158,6 +3159,10 @@ public final class MainActivity extends Activity {
         box.addView(setting("نسخة احتياطية كاملة (JSON + الصور)","تشمل ملفات الصور الفعلية — احفظها على بطاقة SD أو USB أو تطبيق تخزين سحابي لحمايتها من سرقة/فقدان/حذف التطبيق",0xff149176,v->createFullBackup()));
         box.addView(setting("استيراد قائمة أو نسخة احتياطية","Excel أو CSV أو JSON من ذاكرة الهاتف",0xff0E7490,v->chooseImport()));
 
+        box.addView(settingsSection("بيانات التقييم (KoBo)"));
+        int evalCount=EvaluationImporter.storedCount(this);
+        box.addView(setting("استيراد ملف تقييم KoBo",(evalCount>0?"مستورد حالياً: "+evalCount+" سجل تقييم — ":"")+"استيراد لمرة واحدة على هذا الجهاز فقط؛ لا يُرفع أو يُشارك مع أحد. يُستخدم لإضافة ورقة «التقييم» تلقائياً عند تصدير أي دراسة يطابق رقم تسجيلها",0xff149176,v->chooseEvaluationImport()));
+
         box.addView(settingsSection("مجلد المشروع"));
         // PROJECT SAVE ROOT — ONE FOLDER ONLY: a SINGLE root for EVERYTHING (صور/كميات/CAD/backup/الحزمة). The
         // old separate «مجلد صور المستفيدين» row is removed — photos now save into this same root automatically.
@@ -3294,6 +3299,23 @@ public final class MainActivity extends Activity {
             }catch(Exception e){runOnUiThread(()->{progress.dismiss();new AlertDialog.Builder(this).setTitle("تعذر قراءة ملف العناوين").setMessage(friendlyImportError(e)).setPositiveButton("حسناً",null).show();});}
         });
     }
+    // ---- «التقييم» KoBo evaluation import: like the satellite image, this is a ONE-TIME, PER-DEVICE, LOCAL-ONLY
+    // import of a file the office supplies — the real per-beneficiary evaluation data (names/IDs/health status)
+    // must never be bundled into the app or committed to source control. Stored only in the app's private
+    // storage (protected by the app PIN), matched to a study by registration number at export time. ----
+    private void chooseEvaluationImport(){Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("*/*");intent.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/octet-stream"});startActivityForResult(intent,REQUEST_EVALUATION_IMPORT);}
+    private void importEvaluationFile(android.net.Uri uri){
+        ProgressDialog progress=new ProgressDialog(this);progress.setMessage("جارٍ استيراد ملف التقييم…");progress.setCancelable(false);progress.show();
+        worker.execute(()->{
+            EvaluationImporter.ImportResult r=EvaluationImporter.importFrom(this,uri);
+            runOnUiThread(()->{progress.dismiss();
+                if(r.error!=null&&!r.error.isEmpty()){new AlertDialog.Builder(this).setTitle("تعذر استيراد ملف التقييم").setMessage(r.error).setPositiveButton("حسناً",null).show();return;}
+                new AlertDialog.Builder(this).setTitle("✓ تم استيراد التقييم")
+                    .setMessage("عدد السجلات المستوردة: "+r.count+"\n\nسيُضاف تلقائياً كأول ورقة (التقييم) عند تصدير ملف Excel لأي دراسة يطابق رقم تسجيلها.")
+                    .setPositiveButton("حسناً",null).show();
+            });
+        });
+    }
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==REQUEST_SEQ_CAMERA){handleSeqCapture(result,data);return;}
         if(request==REQUEST_SYNC_SHARE){
             // Cancelling the share chooser (nothing picked) must never be recorded as a sync — and picking
@@ -3304,7 +3326,7 @@ public final class MainActivity extends Activity {
             db.markRevisionsSynced(uuids);toast("تم تصدير "+uuids.size()+" سجلاً (بانتظار استلامها على جهاز Windows)");
             return;
         }
-        if(result!=RESULT_OK){if(request==REQUEST_PHOTO_ROOT){deferredPhotoBeneficiaryId=0;deferredPhotoPhase="";}if(request==REQUEST_HOUSE_PLAN)pendingPlanBeneficiaryId=0;return;}if(data==null||data.getData()==null)return;Uri uri=data.getData();if(request==REQUEST_IMPORT){if(ZipImportHelper.looksLikeZip(SpreadsheetImporter.queryName(this,uri)))importZipUri(uri);else importUri(uri);}else if(request==REQUEST_ADDRESS_REF)importAddressReference(uri);else if(request==REQUEST_SATELLITE_IMAGE)importSatelliteImage(uri);else if(request==REQUEST_BACKUP)writeBackup(uri);else if(request==REQUEST_FULL_BACKUP)writeFullBackup(uri);else if(request==REQUEST_CAD_FONT)writeCadFont(uri);else if(request==REQUEST_HOUSE_PLAN){long beneficiaryId=pendingPlanBeneficiaryId;pendingPlanBeneficiaryId=0;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}db.setDrawingUri(beneficiaryId,uri.toString());if(beneficiaryDialog!=null)beneficiaryDialog.dismiss();AppDatabase.Beneficiary fresh=db.beneficiary(beneficiaryId);if(fresh!=null)showBeneficiary(fresh);toast("تم ربط مخطط المنزل بالدراسة");}else if(request==REQUEST_PACKAGE_ROOT){try{int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);getContentResolver().takePersistableUriPermission(uri,flags);getSharedPreferences("package_export",MODE_PRIVATE).edit().putString("root_uri",uri.toString()).apply();toast("تم اعتماد مجلد المشروع — سيُحفظ داخله كل شيء تلقائياً");
+        if(result!=RESULT_OK){if(request==REQUEST_PHOTO_ROOT){deferredPhotoBeneficiaryId=0;deferredPhotoPhase="";}if(request==REQUEST_HOUSE_PLAN)pendingPlanBeneficiaryId=0;return;}if(data==null||data.getData()==null)return;Uri uri=data.getData();if(request==REQUEST_IMPORT){if(ZipImportHelper.looksLikeZip(SpreadsheetImporter.queryName(this,uri)))importZipUri(uri);else importUri(uri);}else if(request==REQUEST_ADDRESS_REF)importAddressReference(uri);else if(request==REQUEST_SATELLITE_IMAGE)importSatelliteImage(uri);else if(request==REQUEST_EVALUATION_IMPORT)importEvaluationFile(uri);else if(request==REQUEST_BACKUP)writeBackup(uri);else if(request==REQUEST_FULL_BACKUP)writeFullBackup(uri);else if(request==REQUEST_CAD_FONT)writeCadFont(uri);else if(request==REQUEST_HOUSE_PLAN){long beneficiaryId=pendingPlanBeneficiaryId;pendingPlanBeneficiaryId=0;try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}db.setDrawingUri(beneficiaryId,uri.toString());if(beneficiaryDialog!=null)beneficiaryDialog.dismiss();AppDatabase.Beneficiary fresh=db.beneficiary(beneficiaryId);if(fresh!=null)showBeneficiary(fresh);toast("تم ربط مخطط المنزل بالدراسة");}else if(request==REQUEST_PACKAGE_ROOT){try{int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);getContentResolver().takePersistableUriPermission(uri,flags);getSharedPreferences("package_export",MODE_PRIVATE).edit().putString("root_uri",uri.toString()).apply();toast("تم اعتماد مجلد المشروع — سيُحفظ داخله كل شيء تلقائياً");
             // PROJECT SAVE ROOT: resume whatever the user was doing (start study / capture photos / prepare package)
             // via the single pendingRootAction. The legacy pendingPackageBenId path stays as a fallback.
             Runnable act=pendingRootAction;pendingRootAction=null;

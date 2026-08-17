@@ -38,7 +38,9 @@ public final class SpreadsheetImporter {
         public boolean backup;
     }
 
-    private static final class SheetRow {
+    // Package-private (not private) so EvaluationImporter can reuse the same zero-dependency XLSX reader
+    // instead of duplicating it.
+    static final class SheetRow {
         final Map<Integer,String> cells=new HashMap<>();
         String get(int column){return cells.containsKey(column)?cells.get(column):"";}
     }
@@ -165,7 +167,7 @@ public final class SpreadsheetImporter {
     }
 
     /** Sheet display names in declaration order, straight from xl/workbook.xml — sheetN.xml file numbering already matches this order in practice, same assumption the existing filename sort makes. */
-    private static List<String> readSheetNames(ZipFile zip)throws Exception{
+    static List<String> readSheetNames(ZipFile zip)throws Exception{
         List<String> names=new ArrayList<>();
         ZipEntry entry=zip.getEntry("xl/workbook.xml");
         if(entry==null)return names;
@@ -187,7 +189,7 @@ public final class SpreadsheetImporter {
         return "قائمة: "+trimmed;
     }
 
-    private static List<String> readSharedStrings(ZipFile zip)throws Exception{
+    static List<String> readSharedStrings(ZipFile zip)throws Exception{
         ZipEntry entry=zip.getEntry("xl/sharedStrings.xml");List<String> values=new ArrayList<>();if(entry==null)return values;
         XMLReader parser=createXmlReader();parser.setContentHandler(new DefaultHandler(){StringBuilder text=new StringBuilder();StringBuilder current=new StringBuilder();boolean inT;
             @Override public void startElement(String u,String l,String q,Attributes a){if("si".equals(q))current.setLength(0);if("t".equals(q)){text.setLength(0);inT=true;}}
@@ -196,7 +198,7 @@ public final class SpreadsheetImporter {
         parser.parse(new InputSource(zip.getInputStream(entry)));return values;
     }
 
-    private static List<SheetRow> parseSheet(InputStream stream,List<String>shared)throws Exception{
+    static List<SheetRow> parseSheet(InputStream stream,List<String>shared)throws Exception{
         List<SheetRow> rows=new ArrayList<>();XMLReader parser=createXmlReader();
         parser.setContentHandler(new DefaultHandler(){SheetRow row;String type="";int col;StringBuilder value=new StringBuilder();boolean capture;
             @Override public void startElement(String u,String l,String q,Attributes a){

@@ -35,12 +35,41 @@ public final class BeneficiaryXlsx {
     private static final String NAME_CELL = "I3";                      // header value cell for اسم المستفيد
     private static final String PHOTO_SHEET = "sheet4.xml";            // ورقة «صور قبل الترميم» (rId4)
     private static final String DRAW_RID = "rId100";                   // sheet→drawing rel id (unused by template)
+    private static final String EVAL_SHEET = "xl/worksheets/sheet7.xml"; // ورقة «التقييم» — أول ورقة بالحزمة
+
+    /** Placeholder key -> cell reference on the «التقييم» sheet, matching exactly how that sheet was authored
+     * (see HANDOFF for the generating script). NAME and REG are filled for every export straight from the
+     * app's own beneficiary record; everything else only when a matching EvaluationRecord was found on this
+     * device (see EvaluationImporter) — a beneficiary with no imported KoBo match simply keeps those cells
+     * blank, never a guessed value. */
+    private static final Map<String, String> EVAL_CELL_BY_KEY = buildEvalCellMap();
+    private static Map<String, String> buildEvalCellMap() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("NAME","D1"); m.put("ENGINEER","G1");
+        m.put("AGE","D3"); m.put("GENDER","F3"); m.put("MARITAL","D4"); m.put("RESIDENCE","F4"); m.put("SECONDWIFE","D5");
+        m.put("FAMILYREG","B6"); m.put("OWNERSHIP","D6"); m.put("OWNERDOCS","F6");
+        m.put("REG","B7"); m.put("PLOTREF","D7");
+        m.put("LEDGER","B8"); m.put("BUILDINGNO","D8"); m.put("STREET","F8");
+        m.put("FAMSIZE","B9"); m.put("PHONE1","D9"); m.put("ADDRESS","F9");
+        m.put("NATID","B10"); m.put("PHONE2","D10"); m.put("FLOOR","F10");
+        m.put("HEALTHSOCIAL_TOTAL","G12"); m.put("HEALTH_SUB","G13");
+        m.put("SCORE_CHRONIC","G14"); m.put("SCORE_MENTAL","G15");
+        m.put("SOCIAL_SUB","G16"); m.put("SCORE_VULN","G17"); m.put("SCORE_CROWD","G18");
+        m.put("SCORE_GENDERSEP","G19"); m.put("SCORE_INCOME","G20");
+        m.put("PHYSICAL_TOTAL","G21");
+        m.put("SCORE_STRUCT_DEVIATION","C22"); m.put("SCORE_STRUCT_CRACKING","D22"); m.put("SCORE_STRUCT_SPALLING","E22");
+        m.put("SCORE_STRUCT_STABILITY","F22"); m.put("SCORE_STRUCT_TOTAL","G22");
+        m.put("OTHERCOND_SUB","G23"); m.put("SCORE_TOILET","G24"); m.put("SCORE_KITCHEN","G25");
+        m.put("SCORE_VENTILATION","G26"); m.put("SCORE_DAMPNESS","G27"); m.put("SCORE_SEWAGE","G28");
+        m.put("GRAND_TOTAL","G29");
+        return m;
+    }
 
     /** Backward-compatible overload: quantities + name only, no embedded photos (used by the standalone quantities
      * export). */
     public static void write(InputStream template, Map<Integer, Double> quantitiesByItemNo,
                              String beneficiaryName, OutputStream out) throws IOException {
-        write(template, quantitiesByItemNo, beneficiaryName, null, out);
+        write(template, quantitiesByItemNo, beneficiaryName, null, null, null, out);
     }
 
     /** Copy the template, injecting quantities (keyed by 1-based item number) into column F, the beneficiary name
@@ -49,6 +78,15 @@ public final class BeneficiaryXlsx {
      * quantities stay blank so the template's empty look is kept. */
     public static void write(InputStream template, Map<Integer, Double> quantitiesByItemNo,
                              String beneficiaryName, List<byte[]> beforePhotos, OutputStream out) throws IOException {
+        write(template, quantitiesByItemNo, beneficiaryName, beforePhotos, null, null, out);
+    }
+
+    /** Full form: also fills the «التقييم» sheet (first in the workbook) — {@code registration} always (the app
+     * already has it for every beneficiary), plus every other field on that sheet when {@code evaluation} is a
+     * match found on this device (see EvaluationImporter); null leaves those cells blank. */
+    public static void write(InputStream template, Map<Integer, Double> quantitiesByItemNo,
+                             String beneficiaryName, List<byte[]> beforePhotos, String registration,
+                             EvaluationRecord evaluation, OutputStream out) throws IOException {
         LinkedHashMap<String, byte[]> parts = new LinkedHashMap<>();
         ZipInputStream zin = new ZipInputStream(new BufferedInputStream(template));
         byte[] buf = new byte[8192];
@@ -67,6 +105,21 @@ public final class BeneficiaryXlsx {
             xml = injectQuantities(xml, quantitiesByItemNo);
             xml = injectName(xml, beneficiaryName);
             parts.put(QTY_SHEET, xml.getBytes(StandardCharsets.UTF_8));
+        }
+
+        byte[] eval = parts.get(EVAL_SHEET);
+        if (eval != null) {
+            String xml = new String(eval, StandardCharsets.UTF_8);
+            Map<String, String> values = new LinkedHashMap<>();
+            if (evaluation != null) values.putAll(evaluation.values);
+            if (beneficiaryName != null && !beneficiaryName.trim().isEmpty()) values.put("NAME", beneficiaryName.trim());
+            if (registration != null && !registration.trim().isEmpty()) values.put("REG", registration.trim());
+            for (Map.Entry<String, String> entry : values.entrySet()) {
+                String cellRef = EVAL_CELL_BY_KEY.get(entry.getKey());
+                if (cellRef == null || entry.getValue() == null || entry.getValue().trim().isEmpty()) continue;
+                xml = injectInlineText(xml, cellRef, entry.getValue().trim());
+            }
+            parts.put(EVAL_SHEET, xml.getBytes(StandardCharsets.UTF_8));
         }
 
         if (beforePhotos != null && !beforePhotos.isEmpty()) embedPhotos(parts, beforePhotos);
@@ -176,6 +229,20 @@ public final class BeneficiaryXlsx {
         if (m.find()) {
             String attrs = m.group(1).replaceAll("\\s+t=\"[^\"]*\"", ""); // drop any existing cell type
             String rep = "<c r=\"" + NAME_CELL + "\"" + attrs + " t=\"inlineStr\"><is><t xml:space=\"preserve\">"
+                    + esc + "</t></is></c>";
+            xml = xml.substring(0, m.start()) + rep + xml.substring(m.end());
+        }
+        return xml;
+    }
+
+    /** Put an arbitrary value into an arbitrary cell as an inline string (used for the «التقييم» sheet). */
+    static String injectInlineText(String xml, String cellRef, String value) {
+        if (cellRef == null || value == null || value.trim().isEmpty()) return xml;
+        String esc = xmlEscape(value.trim());
+        Matcher m = Pattern.compile("<c r=\"" + cellRef + "\"([^>]*?)/>").matcher(xml);
+        if (m.find()) {
+            String attrs = m.group(1).replaceAll("\\s+t=\"[^\"]*\"", ""); // drop any existing cell type
+            String rep = "<c r=\"" + cellRef + "\"" + attrs + " t=\"inlineStr\"><is><t xml:space=\"preserve\">"
                     + esc + "</t></is></c>";
             xml = xml.substring(0, m.start()) + rep + xml.substring(m.end());
         }
