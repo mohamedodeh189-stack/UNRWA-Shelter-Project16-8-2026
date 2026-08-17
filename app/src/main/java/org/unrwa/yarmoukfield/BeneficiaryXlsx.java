@@ -38,10 +38,10 @@ public final class BeneficiaryXlsx {
     private static final String EVAL_SHEET = "xl/worksheets/sheet1.xml"; // ورقة «التقييم» — أول ورقة بالحزمة
 
     /** Placeholder key -> cell reference on the «التقييم» sheet, matching exactly how that sheet was authored
-     * (see HANDOFF for the generating script). NAME and REG are filled for every export straight from the
-     * app's own beneficiary record; everything else only when a matching EvaluationRecord was found on this
-     * device (see EvaluationImporter) — a beneficiary with no imported KoBo match simply keeps those cells
-     * blank, never a guessed value. */
+     * (see HANDOFF for the generating script). NAME and FAMILYREG are filled for every export straight from the
+     * app's own beneficiary record; everything else — including REG, a DIFFERENT KoBo-only number — only when a
+     * matching EvaluationRecord was found on this device (see EvaluationImporter) — a beneficiary with no
+     * imported KoBo match simply keeps those cells blank, never a guessed value. */
     private static final Map<String, String> EVAL_CELL_BY_KEY = buildEvalCellMap();
     private static Map<String, String> buildEvalCellMap() {
         Map<String, String> m = new LinkedHashMap<>();
@@ -115,7 +115,11 @@ public final class BeneficiaryXlsx {
             Map<String, String> values = new LinkedHashMap<>();
             if (evaluation != null) values.putAll(evaluation.values);
             if (beneficiaryName != null && !beneficiaryName.trim().isEmpty()) { values.put("NAME", beneficiaryName.trim()); values.put("NAME2", beneficiaryName.trim()); }
-            if (registration != null && !registration.trim().isEmpty()) values.put("REG", registration.trim());
+            // FAMILYREG (B6) is the app's own registration field (matches EvaluationImporter's match key), shown
+            // even without a KoBo match, same as NAME above. REG (B7, the individual "1.5" number) is a DIFFERENT
+            // KoBo-only field and must come purely from evaluation.values — never overwritten with the app's own
+            // registration, or it would show the wrong number in that cell.
+            if (registration != null && !registration.trim().isEmpty()) values.put("FAMILYREG", registration.trim());
             for (Map.Entry<String, String> entry : values.entrySet()) {
                 String cellRef = EVAL_CELL_BY_KEY.get(entry.getKey());
                 if (cellRef == null || entry.getValue() == null || entry.getValue().trim().isEmpty()) continue;

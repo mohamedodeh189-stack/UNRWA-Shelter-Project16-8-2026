@@ -111,7 +111,11 @@ public final class EvaluationImporter {
         for (String[] field : LETTER_FIELDS) letterCol.put(field[0], columnFromLetters(field[1]));
         Map<String, Integer> dateCol = new LinkedHashMap<>();
         for (String[] field : DATE_FIELDS) dateCol.put(field[0], columnFromLetters(field[1]));
-        int regCol = columnFromLetters("Y");
+        // Matched on FAMILYREG ("1.4 - رقم تسجيل العائلة", column X — e.g. "1-00148650"), because that is what
+        // this app's own AppDatabase.Beneficiary.registration field stores, NOT the individual "1.5 - رقم
+        // التسجيل الفردي" (column Y, e.g. "2-00590052") shown separately on the sheet at B7 — confirmed against
+        // a real beneficiary whose app registration number only matches the "1.4" column.
+        int regCol = columnFromLetters("X");
 
         List<EvaluationRecord> out = new ArrayList<>();
         for (int r = 1; r < rows.size(); r++) {
