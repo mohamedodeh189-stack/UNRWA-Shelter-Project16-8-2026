@@ -3138,8 +3138,16 @@ public final class MainActivity extends Activity {
     }
     private void promptEngineerName(){EditText input=new EditText(this);input.setHint("مثال: م. محمد أمين عودة");input.setText(currentEngineerName());input.setSingleLine(true);new AlertDialog.Builder(this).setTitle("اسم المهندس/الباحث الحالي").setMessage("يُسجَّل مع كل مستفيد يُضاف أو يُستورد من هذا الجهاز، ليظهر بوضوح من أضاف كل سجل عند دمج قوائم عدة مهندسين.").setView(input).setPositiveButton("حفظ",(d,w)->{getPreferences(MODE_PRIVATE).edit().putString("engineer_name",input.getText().toString().trim()).apply();renderActive();}).setNegativeButton("إلغاء",null).show();}
 
+    /** «v20.1 (2001)» — الاسم ورقم البناء معاً، ليتأكد المستخدم أي نسخة مثبّتة فعلاً قبل الإبلاغ عن أي عطل. */
+    private String appVersionLabel(){
+        try{ android.content.pm.PackageInfo info=getPackageManager().getPackageInfo(getPackageName(),0);
+            return "v"+info.versionName+" ("+info.versionCode+")"; }
+        catch(Exception e){ return "غير معروف"; }
+    }
     private void showSettings(){ScrollView scroll=new ScrollView(this);content.addView(scroll,new FrameLayout.LayoutParams(-1,-1));LinearLayout box=column(dp(16));scroll.addView(box);box.addView(text("الإعدادات",21,NAVY,true));
         TextView settingsSub=text("مشروع المأوى في الأونروا • UNRWA Shelter Project",11,MUTED,false);settingsSub.setPadding(0,dp(2),0,dp(2));box.addView(settingsSub);
+        // إصدار التطبيق ظاهر دائماً — بدونه يستحيل معرفة أي نسخة مثبّتة فعلياً عند تشخيص أي مشكلة.
+        TextView versionLine=text("إصدار التطبيق: "+appVersionLabel(),12,0xff0E7490,true);versionLine.setPadding(0,dp(2),0,dp(6));box.addView(versionLine);
 
         box.addView(settingsSection("معلومات المشروع"));
         box.addView(setting("المشروع الحالي",currentProject,BLUE,v->newProject()));
