@@ -892,9 +892,10 @@ public final class MainActivity extends Activity {
             java.io.File dir=new java.io.File(getCacheDir(),"embedded_cad");dir.mkdirs();
             String safe=b.name.replaceAll("[\\\\/:*?\"<>|]"," ").trim();if(safe.isEmpty())safe="مستفيد";
             java.io.File out=new java.io.File(dir,safe+"_الكميات.xlsx");
+            EvaluationRecord eval=EvaluationImporter.findByRegistration(this,b.registration);
             try(java.io.InputStream tpl=getAssets().open(BeneficiaryXlsx.TEMPLATE_ASSET);
                 java.io.OutputStream os=new java.io.FileOutputStream(out)){
-                BeneficiaryXlsx.write(tpl,q,b.name,os);
+                BeneficiaryXlsx.write(tpl,q,b.name,null,b.registration,eval,os);
             }
             Uri uri=CadFileProvider.uriFor(this,out);
             Intent send=new Intent(Intent.ACTION_SEND);
