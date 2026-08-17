@@ -24,18 +24,18 @@ import java.util.zip.ZipOutputStream;
  * original project format and Excel recalculates the totals on open.
  *
  * Pure Java (java.util.zip only, no external library, no Android) → unit-testable on a plain JDK. In the app the
- * template comes from AssetManager; here any InputStream works. The الكميات sheet is the workbook's first sheet
- * (xl/worksheets/sheet1.xml) and item N lives on row N+6 (item 1 → row 7 … item 37 → row 43). */
+ * template comes from AssetManager; here any InputStream works. The الكميات sheet is the workbook's second sheet
+ * (xl/worksheets/sheet2.xml, after التقييم) and item N lives on row N+6 (item 1 → row 7 … item 37 → row 43). */
 public final class BeneficiaryXlsx {
     private BeneficiaryXlsx() {}
 
     public static final String TEMPLATE_ASSET = "quantities_template.xlsx";
-    private static final String QTY_SHEET = "xl/worksheets/sheet1.xml"; // ورقة «الكميات»
+    private static final String QTY_SHEET = "xl/worksheets/sheet2.xml"; // ورقة «الكميات»
     private static final int FIRST_ITEM_ROW = 7;                        // item 1 sits on row 7
     private static final String NAME_CELL = "I3";                      // header value cell for اسم المستفيد
-    private static final String PHOTO_SHEET = "sheet4.xml";            // ورقة «صور قبل الترميم» (rId4)
+    private static final String PHOTO_SHEET = "sheet5.xml";            // ورقة «صور قبل الترميم» (rId5)
     private static final String DRAW_RID = "rId100";                   // sheet→drawing rel id (unused by template)
-    private static final String EVAL_SHEET = "xl/worksheets/sheet7.xml"; // ورقة «التقييم» — أول ورقة بالحزمة
+    private static final String EVAL_SHEET = "xl/worksheets/sheet1.xml"; // ورقة «التقييم» — أول ورقة بالحزمة
 
     /** Placeholder key -> cell reference on the «التقييم» sheet, matching exactly how that sheet was authored
      * (see HANDOFF for the generating script). NAME and REG are filled for every export straight from the
@@ -155,6 +155,9 @@ public final class BeneficiaryXlsx {
         byte[] sheet = parts.get(sheetName);
         if (sheet != null) {
             String sx = new String(sheet, StandardCharsets.UTF_8);
+            // The sheet root may not declare xmlns:r if the template never used an r:-prefixed attribute on it —
+            // <drawing r:id="..."/> needs it, so add the namespace declaration before using the prefix.
+            if (!sx.contains("xmlns:r=")) sx = sx.replaceFirst("<worksheet ", "<worksheet xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" ");
             if (!sx.contains("<drawing ")) sx = sx.replace("</worksheet>", "<drawing r:id=\"" + DRAW_RID + "\"/></worksheet>");
             parts.put(sheetName, sx.getBytes(StandardCharsets.UTF_8));
         }
